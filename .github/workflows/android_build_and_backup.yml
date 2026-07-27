@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Depodaki kodları tam geçmişle iş akışına çek (fetch-depth: 0 rebase çakışmalarını önler)
+      # 1. Depodaki kodları tam geçmişle iş akışına çek
       - name: Kaynak Kodları Çek (Checkout)
         uses: actions/checkout@v4
         with:
@@ -30,12 +30,10 @@ jobs:
           
           mkdir -p $BACKUP_DIR
           
-          # pubspec.yaml dosyasını yedekle
           if [ -f "pubspec.yaml" ]; then
             cp pubspec.yaml "$BACKUP_DIR/pubspec.yaml.$BUILD_NO-$COMMIT_NO"
           fi
           
-          # lib klasöründeki tüm dart dosyalarını tarayıp kopyala (backups klasörü hariç)
           if [ -d "lib" ]; then
             find lib -type f -not -path "*/$BACKUP_DIR/*" | while read -r file; do
               filename=$(basename -- "$file")
@@ -53,7 +51,6 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add backups/
           
-          # Değişiklik varsa commit et ve çakışmaları rebase ile çözüp push et
           if ! git diff-index --quiet HEAD; then
             git commit -m "Sistem Yedeklemesi: Build #${{ github.run_number }} | Commit: ${{ github.run_id }}"
             git pull --rebase origin ${{ github.ref_name }}
@@ -62,7 +59,7 @@ jobs:
             echo "Değişiklik yok, push atlandı."
           fi
 
-      # 4. Java Ortamını Kur (Android derlemesi için zorunlu)
+      # 4. Java Ortamını Kur
       - name: Java JDK Kurulumu
         uses: actions/setup-java@v3
         with:
@@ -85,15 +82,22 @@ jobs:
             echo "Android klasörü mevcut."
           fi
 
-      # 7. Bağımlılıkları Çek
+      # [YENİ ADIM] 7. Uygulama koduna dinamik olarak derleme numarasını enjekte et
+      - name: Build Numarasını Kod Yapısına Yaz
+        run: |
+          BUILD_NO="${{ github.run_number }}"
+          sed -i "s/BUILD_NUMBER_PLACEHOLDER/$BUILD_NO/g" lib/home_screen.dart || true
+          sed -i "s/BUILD_NUMBER_PLACEHOLDER/$BUILD_NO/g" lib/reader_screen.dart || true
+
+      # 8. Bağımlılıkları Çek
       - name: Flutter Bağımlılıklarını Getir
         run: flutter pub get
 
-      # 8. Android Debug APK'sını Derle
+      # 9. Android Debug APK'sını Derle
       - name: Android Debug APK Derle
         run: flutter build apk --debug
 
-      # 9. APK Dosyasını Dinamik Olarak Yeniden İsimlendir
+      # 10. APK Dosyasını Dinamik Olarak Yeniden İsimlendir
       - name: APK Dosyasını Dinamik Yeniden İsimlendir
         run: |
           BUILD_NO="${{ github.run_number }}"
@@ -108,9 +112,9 @@ jobs:
             exit 1
           fi
 
-      # 10. Dinamik İsimlendirilen APK'yı İndirilebilir Çıktı Olarak Yükle
+      # 11. Dinamik İsimlendirilen APK'yı İndirilebilir Çıktı Olarak Yükle
       - name: APK Çıktısını Yayınla (Upload Artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: tayf-hizli-okuma-${{ github.run_number }}-debug-apk
+          name: tayf-hizli-okuma-${{ github.run_number }}--debug-apk
           path: build/app/outputs/flutter-apk/tayf-hizli-okuma-${{ github.run_number }}-debug.apk
