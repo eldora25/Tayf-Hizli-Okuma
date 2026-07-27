@@ -13,7 +13,7 @@ class ReaderScreen extends StatefulWidget {
 class _ReaderScreenState extends State<ReaderScreen> {
   late SpeedReaderEngine _engine;
   int _currentWordIndex = 0;
-  int _wpm = 300; // Başlangıç WPM değeri
+  int _wpm = 300;
   bool _isPlaying = false;
   Timer? _timer;
 
@@ -31,7 +31,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   void _startTimer() {
     _timer?.cancel();
-    // WPM değerini milisaniyeye çeviren matematiksel formül
     int intervalMs = ((60 / _wpm) * 1000).round();
 
     _timer = Timer.periodic(Duration(milliseconds: intervalMs), (timer) {
@@ -42,7 +41,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       } else {
         _pauseTimer();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tebrikler! Okuma çalışması tamamlandı.')),
+          const SnackBar(content: Text('Egzersiz başarıyla tamamlandı!')),
         );
       }
     });
@@ -58,33 +57,39 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _pauseTimer();
     setState(() {
       _currentWordIndex = 0;
-    });
+                });
   }
 
-  /// Kelimeyi odak noktasına göre renkli parçalara ayırıp RichText olarak döner
+  /// Kelimeyi parçalayıp odak harfini temanın birincil rengine boyar
   Widget _buildSpritzWord(String word) {
     if (word.isEmpty) return const SizedBox.shrink();
 
     int focusIndex = SpeedReaderEngine.getOptimalFocusIndex(word);
-    
     String leftPart = word.substring(0, focusIndex);
     String focusChar = word.substring(focusIndex, focusIndex + 1);
     String rightPart = word.substring(focusIndex + 1);
 
-    const textStyle = TextStyle(fontSize: 36, fontWeight: FontWeight.w400, fontFamily: 'monospace');
+    const textStyle = TextStyle(
+      fontSize: 38,
+      fontWeight: FontWeight.w500,
+      fontFamily: 'monospace',
+    );
+
+    final defaultColor = Theme.of(context).textTheme.bodyLarge?.color;
+    final accentColor = Theme.of(context).colorScheme.primary;
 
     return RichText(
       text: TextSpan(
-        style: textStyle.copyWith(color: Theme.of(context).textTheme.bodyLarge?.color),
+        style: textStyle.copyWith(color: defaultColor),
         children: [
-          // Sol Kısım (Sağa hizalı hissi yaratmak için boşluk yönetimi eklenebilir)
           TextSpan(text: leftPart),
-          // Odak Noktası (Kırmızı / Vurgulu Renk)
           TextSpan(
             text: focusChar,
-            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: accentColor,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          // Sağ Kısım
           TextSpan(text: rightPart),
         ],
       ),
@@ -97,19 +102,20 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tayf RSVP Egzersizi'),
+        title: const Text('RSVP Okuma Motoru'),
       ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // ÜST BİLGİ: İlerleme Çubuğu ve Kelime Sayacı
+          // ÜST KISIM: İlerleme Çubuğu
           Padding(
             padding: const EdgeInsets.all(16.0),
-            key: const ValueKey('progress_section'),
             child: Column(
               children: [
                 LinearProgressIndicator(
-                  value: _engine.words.isEmpty ? 0 : (_currentWordIndex + 1) / _engine.words.length,
+                  value: _engine.words.isEmpty
+                      ? 0
+                      : (_currentWordIndex + 1) / _engine.words.length,
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -120,51 +126,46 @@ class _ReaderScreenState extends State<ReaderScreen> {
             ),
           ),
 
-          // ORTA KISIM: Spritz Odaklama Arayüzü
+          // ORTA KISIM: Spritz Çerçevesi ve Kelime Gösterimi
           Column(
             children: [
-              // Üst Kılavuz Odak Çizgisi
               Container(
-                width: 300,
+                width: 320,
                 height: 2,
-                color: Theme.of(context).dividerColor,
+                color: Theme.of(context).colorScheme.outlineVariant,
               ),
               const SizedBox(height: 4),
-              // Dikey Merkezleme Kılavuz Çentiği (Üst)
-              const Icon(Icons.arrow_drop_down, color: Colors.red),
-              
-              // KELİME GÖSTERİM ALANI
+              Icon(Icons.arrow_drop_down, color: Theme.of(context).colorScheme.primary),
               Container(
                 alignment: Alignment.center,
-                height: 100,
+                height: 110,
                 width: double.infinity,
                 child: _buildSpritzWord(currentWord),
               ),
-
-              // Dikey Merkezleme Kılavuz Çentiği (Alt)
-              const Icon(Icons.arrow_drop_up, color: Colors.red),
+              Icon(Icons.arrow_drop_up, color: Theme.of(context).colorScheme.primary),
               const SizedBox(height: 4),
-              // Alt Kılavuz Odak Çizgisi
               Container(
-                width: 300,
+                width: 320,
                 height: 2,
-                color: Theme.of(context).dividerColor,
+                color: Theme.of(context).colorScheme.outlineVariant,
               ),
             ],
           ),
 
-          // ALT KISIM: Hız Kontrolü (WPM) ve Oynatma Butonları
+          // ALT KISIM: Kontroller ve Hız Ayarı (WPM Slider)
           Padding(
             padding: const EdgeInsets.only(bottom: 40.0, left: 16, right: 16),
             child: Column(
               children: [
-                // Hız Ayarı (WPM) Slider
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Icon(Icons.speed),
                     const SizedBox(width: 8),
-                    Text('Hız (WPM): $_wpm', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(
+                      'Hız (WPM): $_wpm',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
                 Slider(
@@ -178,12 +179,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       _wpm = value.toInt();
                     });
                     if (_isPlaying) {
-                      _startTimer(); // Çalışırken hız değiştirilirse motoru güncelle
+                      _startTimer();
                     }
                   },
                 ),
                 const SizedBox(height: 16),
-                // Oynat, Duraklat, Sıfırla Butonları
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -197,7 +197,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       onPressed: _isPlaying ? _pauseTimer : _startTimer,
                       child: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
                     ),
-                    const SizedBox(width: 56), // Simetri dengelemesi için boşluk
+                    const SizedBox(width: 56),
                   ],
                 ),
               ],
