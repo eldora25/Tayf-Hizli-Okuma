@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart'; // EKLENDİ: debugPrint hatasını çözer
 import 'package:archive/archive.dart';
 
 class BookModel {
@@ -33,11 +34,10 @@ class BookDatabase {
 
   List<BookModel> getBooks() => _myBooks;
 
-  /// Uygulama ilk açıldığında `assets/` klasöründeki sizin özel 3 kitabınızı yükler
+  /// Uygulama ilk açıldığında assets klasöründeki özel kitapları yükler
   Future<void> loadDefaultAssets() async {
     if (_assetsLoaded) return;
     
-    // Güvenli dosya yolları ve kullanıcının göreceği orijinal Türkçe isimler
     final assetBooks = [
       {'path': 'assets/kitap1.epub', 'title': 'Üç Cisim Problemi - Tek Cilt İthaki Yayınları'},
       {'path': 'assets/kitap2.epub', 'title': 'Nutuk - Gençler İçin Fotoğraflarla (Mustafa Kemal Atatürk)'},
@@ -52,16 +52,19 @@ class BookDatabase {
         
         _addSingleBook(asset['title']!, 'EPUB', content);
       } catch (e) {
-        // Dosya bulunamazsa veya henüz assets klasörüne yüklenmediyse sistemi çökertmeden sessizce atlar
         debugPrint("Asset yüklenemedi: ${asset['path']} - Hata: $e");
       }
     }
     _assetsLoaded = true;
   }
 
-  /// Çoklu dosya seçiciden gelen RAW BYTES verilerini işler
-  void addMultipleBooksFromBytes(List<Map<String, dynamic>> pickedFiles) {
-    for (var file in pickedFiles) {
+  /// DÜZELTME: Metot adı file_picker_screen.dart ile uyumlu olması için addMultipleBooks yapıldı 
+  /// ve dinamik List tipini destekleyecek şekilde güncellendi.
+  void addMultipleBooks(List<dynamic> pickedFiles) {
+    for (var item in pickedFiles) {
+      if (item is! Map) continue; // Güvenlik için map tipinde değilse atla
+      
+      final file = item.cast<String, dynamic>();
       final title = file['title'] as String;
       final format = file['format'] as String;
       final bytes = file['bytes'] as Uint8List;
@@ -73,7 +76,6 @@ class BookDatabase {
       if (format == 'EPUB') {
         content = parseEpubBytes(bytes);
       } else if (format == 'TXT') {
-        // Saf TXT UTF-8 çevirimi
         content = utf8.decode(bytes, allowMalformed: true);
       } else {
         content = "Bu format (PDF/DOCX) henüz tam desteklenmemektedir. Lütfen EPUB veya TXT kullanın.";
@@ -87,7 +89,6 @@ class BookDatabase {
     if (content.trim().isEmpty) return;
 
     final id = (_myBooks.length + 1).toString();
-    // Her 150 karakteri ortalama bir RSVP sayfası olarak baz alıyoruz
     int pages = (content.length / 150).ceil();
     if (pages < 1) pages = 1;
 
@@ -100,7 +101,7 @@ class BookDatabase {
     ));
   }
 
-  /// Sıkıştırılmış EPUB arşivini kırar ve içindeki HTML/XHTML metinleri %100 Türkçe desteğiyle ayıklar
+  /// Sıkıştırılmış EPUB arşivini kırar ve içindeki HTML/XHTML metinleri Türkçe desteğiyle ayıklar
   String parseEpubBytes(Uint8List bytes) {
     try {
       final archive = ZipDecoder().decodeBytes(bytes);
@@ -108,17 +109,13 @@ class BookDatabase {
 
       for (final file in archive) {
         if (file.isFile && (file.name.endsWith('.html') || file.name.endsWith('.xhtml') || file.name.endsWith('.htm'))) {
-          // UTF-8 olarak veriyi al
           final htmlContent = utf8.decode(file.content as List<int>, allowMalformed: true);
           
-          // CSS ve JavaScript kodlarını blok olarak sil
           String text = htmlContent.replaceAll(RegExp(r'<style[^>]*>[\s\S]*?<\/style>', caseSensitive: false), ' ');
           text = text.replaceAll(RegExp(r'<script[^>]*>[\s\S]*?<\/script>', caseSensitive: false), ' ');
           
-          // Geriye kalan tüm HTML Tag'lerini sil
           text = text.replaceAll(RegExp(r'<[^>]*>'), ' ');
           
-          // TÜRKÇE KARAKTER DÜZELTME MOTORU (HTML Entities to UTF-8)
           text = text.replaceAll('&ccedil;', 'ç').replaceAll('&Ccedil;', 'Ç')
                      .replaceAll('&ouml;', 'ö').replaceAll('&Ouml;', 'Ö')
                      .replaceAll('&uuml;', 'ü').replaceAll('&Uuml;', 'Ü')
@@ -129,10 +126,7 @@ class BookDatabase {
                      .replaceAll('&quot;', '"').replaceAll('&#39;', "'")
                      .replaceAll('&lt;', '<').replaceAll('&gt;', '>');
                      
-          // Kalan bilinmeyen, bozuk veya gereksiz HTML simgelerini (& ile başlayıp ; ile biten) boşlukla temizle
           text = text.replaceAll(RegExp(r'&[a-zA-Z0-9#]+;'), '');
-          
-          // Çoklu boşlukları ve satır atlamalarını tek boşluğa düşür
           text = text.replaceAll(RegExp(r'\s+'), ' ');
 
           sb.write("${text.trim()} ");
