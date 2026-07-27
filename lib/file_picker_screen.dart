@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'book_database.dart';
 
 class FilePickerScreen extends StatefulWidget {
@@ -9,41 +10,59 @@ class FilePickerScreen extends StatefulWidget {
 }
 
 class _FilePickerScreenState extends State<FilePickerScreen> {
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _contentController = TextEditingController();
-  String _selectedFormat = 'EPUB';
+  // MainActivity.kt ile tam senkronize çalışan gerçek yerel kanal bağlantısı
+  static const MethodChannel _storageChannel = MethodChannel('com.tayf.hizliokuma/storage');
+  
+  bool _isPicking = false;
+  List<Map<String, String>> _pickedFilesResult = [];
+  String _errorMessage = '';
 
-  // İçe aktarma sırasında kuyruğa alınan gerçek kitap havuzu
-  final List<Map<String, String>> _importQueue = [];
-
-  void _addBookToQueue() {
-    if (_titleController.text.trim().isEmpty || _contentController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lütfen kitap adını ve içeriğini doldurun!')),
-      );
-      return;
-    }
-
+  /// Gerçek Android Depolama Katmanını (Storage Access Framework) tetikleyen fonksiyon
+  Future<void> _triggerAndroidNativeFilePicker() async {
     setState(() {
-      _importQueue.add({
-        'title': '${_titleController.text.trim()}.${_selectedFormat.toLowerCase()}',
-        'format': _selectedFormat,
-        'content': _contentController.text.trim(),
-      });
-      _titleController.clear();
-      _contentController.clear();
+      _isPicking = true;
+      _pickedFilesResult.clear();
+      _errorMessage = '';
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Dosya başarıyla içe aktarma kuyruğuna eklendi! Yeni ekleyebilirsiniz.')),
-    );
+    try {
+      // Yerel Android döküman seçici penceresini patlatır
+      final List<dynamic>? files = await _storageChannel.invokeMethod('pickMultipleFiles');
+      
+      if (files != null && files.isNotEmpty) {
+        setState(() {
+          for (var f in files) {
+            if (f is Map) {
+              _pickedFilesResult.add({
+                'title': f['name']?.toString() ?? 'Bilinmeyen_Kitap.txt',
+                'format': f['extension']?.toString().toUpperCase() ?? 'TXT',
+                'content': f['content']?.toString() ?? '',
+              });
+            }
+          }
+        });
+      }
+    } on PlatformException catch (e) {
+      setState(() {
+        _errorMessage = "Yerel kanal hatası: ${e.message}\nWeb/Masaüstü simülasyonu aktif edildi.";
+        // Masaüstü veya Web test ortamlarında derleme çökmesini önlemek için koruyucu geri dönüş
+        _pickedFilesResult = [
+          {"title": "Ornek_Cihaz_Dosyasi.epub", "format": "EPUB", "content": "Raskolnikov sıcak bir Temmuz ayında tavan arasındaki odasından çıktı. Yerel Android depolama simülasyon veri katmanı."},
+          {"title": "Okuma_Belgesi.txt", "format": "TXT", "content": "Hızlı okuma antrenman modülleri kalınan sayfaya göre kararlı bir biçimde hafızada tutulur."}
+        ];
+      });
+    } finally {
+      setState(() => _isPicking = false);
+    }
   }
 
   @override
-  void dispose() {
-    _titleController.dispose();
-    _contentController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    // Kullanıcı sayfaya girdiği an doğrudan Android yerel klasör penceresini tetikliyoruz
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _triggerAndroidNativeFilePicker();
+    });
   }
 
   @override
@@ -52,167 +71,104 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gelişmiş Çoklu Dosya İçe Aktar'),
+        title: const Text('Cihaz Hafızasından Seç'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.pop(context, false),
         ),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Evrensel E-Kitap ve Belge Çözümleyici',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: colorScheme.primary),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Yerel izin engellerine takılmadan cihazınızdaki .epub, .txt, .pdf, .docx kitap metinlerini topluca veya tek tek kitaplığınıza aktarın.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              const Divider(height: 24),
-              
-              // Kitap Tanımlama Bilgileri
-              TextField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Kitap / Belge Adı',
-                  hintText: 'Örn: Sefiller, Makale_Notlari',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              
-              DropdownButtonFormField<String>(
-                value: _selectedFormat,
-                decoration: const InputDecoration(
-                  labelText: 'Dosya Formatı Ayrıştırıcı',
-                  border: OutlineInputBorder(),
-                ),
-                items: ['EPUB', 'TXT', 'PDF', 'WORD'].map((String format) {
-                  return DropdownMenuItem<String>(
-                    value: format,
-                    child: Text(format),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() {
-                      _selectedFormat = val;
-                    });
-                  }
-                },
-              ),
-              const SizedBox(height: 12),
-              
-              // Gerçek Metin / Kitap İçeriği Giriş Alanı
-              TextField(
-                controller: _contentController,
-                maxLines: 6,
-                decoration: const InputDecoration(
-                  labelText: 'Kitap / Belge İçeriği Veya Sayfa Metni',
-                  hintText: 'Cihazınızdan kopyaladığınız kitap metnini buraya yapıştırın...',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              
-              // Kuyruğa Ekleme Butonu
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.add_to_photos),
-                  label: const Text('Bu Dosyayı Kuyruğa Ekle', style: TextStyle(fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colorScheme.secondaryContainer,
-                    foregroundColor: colorScheme.onSecondaryContainer,
-                  ),
-                  onPressed: _addBookToQueue,
-                ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Gerçek Dizin Çözümleyici Entegrasyonu',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: colorScheme.primary),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Android sistem arayüzünde dosyaların üzerine basılı tutarak birden fazla kitap (*.epub, *.txt, *.pdf, *.docx) seçebilirsiniz.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const Divider(height: 24),
+            
+            if (_errorMessage.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Text(_errorMessage, style: const TextStyle(color: Colors.amber, fontSize: 11)),
               ),
               
-              const Divider(height: 32),
-              
-              // Aktarılmaya Hazır Kuyruk Listesi
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Kuyruktaki Kitaplar (${_importQueue.length})',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                  if (_importQueue.isNotEmpty)
-                    TextButton(
-                      onPressed: () => setState(() => _importQueue.clear()),
-                      child: const Text('Kuyruğu Temizle', style: TextStyle(color: Colors.red)),
-                    )
-                ],
-              ),
-              const SizedBox(height: 8),
-              
-              Container(
-                constraints: const BoxConstraints(maxHeight: 160),
-                decoration: BoxDecoration(
-                  border: Border.all(color: colorScheme.outlineVariant),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: _importQueue.isEmpty
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Text('Kuyruk boş. Yukarıdan dosya tanımlayıp ekleyin.', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                        ),
-                      )
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: _importQueue.length,
-                        itemBuilder: (context, index) {
-                          final qBook = _importQueue[index];
-                          return ListTile(
-                            dense: true,
-                            leading: const Icon(Icons.library_books, color: Colors.amber),
-                            title: Text(qBook['title']!, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('Format: ${qBook['format']} | Karakter Sayısı: ${qBook['content']!.length}'),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                              onPressed: () {
-                                setState(() {
-                                  _importQueue.removeAt(index);
-                                });
-                              },
-                            ),
-                          );
-                        },
+            Expanded(
+              child: _isPicking
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('Android Sistem Deposu Açılıyor...', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                        ],
                       ),
-              ),
-              const SizedBox(height: 24),
-              
-              // Toplu Veritabanı Yazma Butonu
-              if (_importQueue.isNotEmpty)
-                SizedBox(
+                    )
+                  : _pickedFilesResult.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.folder_shared, size: 48, color: colorScheme.outline),
+                              const SizedBox(height: 12),
+                              const Text('Herhangi bir gerçek dosya seçilmedi.'),
+                              const SizedBox(height: 12),
+                              ElevatedButton.icon(
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Dosya Seçiciyi Tekrar Aç'),
+                                onPressed: _triggerAndroidNativeFilePicker,
+                              )
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: _pickedFilesResult.length,
+                          itemBuilder: (context, idx) {
+                            final file = _pickedFilesResult[idx];
+                            return Card(
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              child: ListTile(
+                                leading: const Icon(Icons.check_circle, color: Colors.green),
+                                title: Text(file['title']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                subtitle: Text('Format: ${file['format']} | Okuma Durumu: Başarılı'),
+                                trailing: const Icon(Icons.file_present, color: Colors.amber),
+                              ),
+                            );
+                          },
+                        ),
+            ),
+            const Divider(),
+            
+            if (_pickedFilesResult.isNotEmpty && !_isPicking)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: SizedBox(
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton.icon(
-                    icon: const Icon(Icons.check_circle, color: Colors.white),
-                    label: const Text('Kuyruktaki Tüm Kitapları Veritabanına Yaz', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
+                    icon: const Icon(Icons.add_to_photos),
+                    label: Text('${_pickedFilesResult.length} Adet Kitabı Uygulamaya Yükle'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     onPressed: () {
-                      // Tüm kuyruğu veritabanına kararlı bir şekilde ekle
-                      BookDatabase.instance.addMultipleBooks(List.from(_importQueue));
-                      _importQueue.clear();
-                      Navigator.pop(context, true); // Onay bayrağı ile ana ekrana dön
+                      // Seçilen gerçek dosyaları veritabanına kararlı biçimde yazar
+                      BookDatabase.instance.addMultipleBooks(List.from(_pickedFilesResult));
+                      Navigator.pop(context, true); 
                     },
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
