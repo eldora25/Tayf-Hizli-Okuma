@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 enum AppThemePalette { classic, amber, darkVoid, mint }
 
-class ThemeManager {
+class ThemeManager extends ChangeNotifier {
   static final ThemeManager instance = ThemeManager._internal();
   ThemeManager._internal();
 
@@ -15,16 +15,19 @@ class ThemeManager {
 
   void setThemeMode(ThemeMode mode) {
     themeMode = mode;
+    notifyListeners(); // Tüm uygulamayı haberdar et
   }
 
   void setPalette(AppThemePalette palette) {
     currentPalette = palette;
+    notifyListeners(); // Tüm uygulamayı haberdar et
   }
 
   void updateReaderSettings(double size, String fontFamily, Color textColor) {
     readerFontSize = size;
     readerFontFamily = fontFamily;
     readerTextColor = textColor;
+    notifyListeners(); // Okuma ekranını haberdar et
   }
 
   String getPaletteName(AppThemePalette palette) {
@@ -36,7 +39,6 @@ class ThemeManager {
     }
   }
 
-  /// Aktif temaya ve mod ayarlarına göre okuma arka plan rengini belirler
   Color getReaderBackgroundColor() {
     if (themeMode == ThemeMode.dark) {
       return const Color(0xFF121212);
@@ -49,7 +51,6 @@ class ThemeManager {
     }
   }
 
-  /// Aktif temaya göre okuma metni (highlight dışı) rengini belirler
   Color getReaderTextColor() {
     if (themeMode == ThemeMode.dark) {
       return const Color(0xFFE5E5E5);
@@ -60,7 +61,6 @@ class ThemeManager {
     }
   }
 
-  /// Seçili temaya göre Flutter ana temasını döndürür
   ThemeData getThemeData(bool isDark) {
     final baseMode = isDark ? ColorScheme.dark : ColorScheme.light;
     Color primaryColor = Colors.blue;
