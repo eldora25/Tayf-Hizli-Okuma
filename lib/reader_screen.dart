@@ -60,17 +60,43 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
   }
 
-  Widget _buildRedWord(String word) {
+  /// Kelimeyi alıp sadece Spritz standardına göre en uygun odak harfini (ORP) kırmızı yapar.
+  Widget _buildSpritzFocusWord(String word) {
     if (word.isEmpty) return const SizedBox.shrink();
 
-    return Text(
-      word,
+    int focusIndex = SpeedReaderEngine.getOptimalFocusIndex(word);
+    
+    // Güvenlik kontrolü (kelime uzunluğu dışına taşmamak için)
+    if (focusIndex >= word.length) {
+      focusIndex = 0;
+    }
+
+    String leftPart = word.substring(0, focusIndex);
+    String focusChar = word.substring(focusIndex, focusIndex + 1);
+    String rightPart = word.substring(focusIndex + 1);
+
+    const textStyle = TextStyle(
+      fontSize: 40,
+      fontWeight: FontWeight.bold,
+      fontFamily: 'monospace',
+    );
+
+    // Temaya duyarlı standart metin rengi
+    final defaultColor = Theme.of(context).textTheme.bodyLarge?.color;
+
+    return RichText(
       textAlign: TextAlign.center,
-      style: const TextStyle(
-        fontSize: 40,
-        fontWeight: FontWeight.bold,
-        color: Colors.red,
-        fontFamily: 'monospace',
+      text: TextSpan(
+        style: textStyle.copyWith(color: defaultColor),
+        children: [
+          TextSpan(text: leftPart),
+          // Sadece odaklanılan harf kalın kırmızı renkte gösterilir
+          TextSpan(
+            text: focusChar,
+            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.black),
+          ),
+          TextSpan(text: rightPart),
+        ],
       ),
     );
   }
@@ -108,7 +134,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
             ),
           ),
 
-          // ORTA KISIM: Kılavuz Çizgileri ve Kırmızı Kelime Gösterimi
+          // ORTA KISIM: Kılavuz Çizgileri ve Harf Odaklı Gösterim
           Column(
             children: [
               Container(
@@ -123,7 +149,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 height: 120,
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _buildRedWord(currentWord),
+                child: _buildSpritzFocusWord(currentWord),
               ),
               Icon(Icons.arrow_drop_up, color: colorScheme.primary, size: 30),
               const SizedBox(height: 4),
