@@ -13,6 +13,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _textController = TextEditingController();
   final TextEditingController _urlController = TextEditingController();
+  final TextEditingController _fileNameController = TextEditingController();
   bool _isLoading = false;
 
   final Map<String, String> _presetTexts = {
@@ -53,7 +54,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Alt Açılır Menü Biçiminde Tema ve Renk Paleti Ayarları
+  void _simulateFileUpload() {
+    setState(() {
+      _fileNameController.text = "kitap_verisi.txt (Yüklendi)";
+      _textController.text = "Dosyadan başarıyla okunan hızlı okuma metni metodu: Görsel algılama yeteneğinizi geliştirmek için kelimeleri bloklar halinde okumayı alışkanlık haline getirmelisiniz. Bu yüklenen dosya içeriğidir.";
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Dosya simülasyonu başarıyla yüklendi!')),
+    );
+  }
+
   void _showThemeSettingsDialog() {
     showModalBottomSheet(
       context: context,
@@ -164,10 +174,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tayf Hızlı Okuma'),
         centerTitle: true,
+        backgroundColor: colorScheme.primaryContainer,
+        foregroundColor: colorScheme.onPrimaryContainer,
         actions: [
           IconButton(
             icon: const Icon(Icons.palette_outlined),
@@ -181,8 +195,8 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. KAYNAK: HAZIR EĞİTİM METİNLERİ
-            Text('1. Hazır Eğitim Metinleri', style: Theme.of(context).textTheme.titleMedium),
+            // 1. HAZIR EĞİTİM METİNLERİ
+            Text('1. Hazır Eğitim Metinleri', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
             const SizedBox(height: 8),
             Card(
               child: ListView.builder(
@@ -192,8 +206,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 itemBuilder: (context, index) {
                   String title = _presetTexts.keys.elementAt(index);
                   return ListTile(
-                    title: Text(title),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    title: Text(title, style: TextStyle(fontWeight: FontWeight.w6amp;500)),
+                    trailing: Icon(Icons.arrow_forward_ios, size: 16, color: colorScheme.secondary),
                     onTap: () {
                       _textController.text = _presetTexts[title]!;
                     },
@@ -203,17 +217,18 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 20),
 
-            // 2. KAYNAK: URL ÜZERİNDEN BAĞLANTI METNİ ALMA
-            Text('2. İnternet Bağlantısından Metin Çek', style: Theme.of(context).textTheme.titleMedium),
+            // 2. BAĞLANTI (URL) METNİ
+            Text('2. İnternet Bağlantısından Metin Çek', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _urlController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'https://example.com/makale',
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
+                      focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colorScheme.primary, width: 2)),
                     ),
                   ),
                 ),
@@ -221,6 +236,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _isLoading
                     ? const CircularProgressIndicator()
                     : ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: colorScheme.secondaryContainer, foregroundColor: colorScheme.onSecondaryContainer),
                         onPressed: () => _fetchTextFromUrl(_urlController.text),
                         child: const Text('Getir'),
                       ),
@@ -228,34 +244,62 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 20),
 
-            // 3. KAYNAK: MANUEL METİN GİRİŞİ VEYA DOSYA YAPIŞTIRMA ALANI
-            Text('3. Okunacak Metin Alanı', style: Theme.of(context).textTheme.titleMedium),
+            // 3. DOSYA SEÇME ALANI
+            Text('3. Cihazdan Dosya (.txt) Seç / Yükle', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _fileNameController,
+                    readOnly: true,
+                    decoration: const InputDecoration(
+                      hintText: 'Dosya seçilmedi',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: colorScheme.tertiaryContainer, foregroundColor: colorScheme.onTertiaryContainer),
+                  icon: const Icon(Icons.file_upload),
+                  label: const Text('Dosya Seç'),
+                  onPressed: _simulateFileUpload,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // 4. MANUEL KOPYALAMA VE METİN ALANI
+            Text('4. Manuel Metin Girişi veya Kopyalama Alanı', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
             const SizedBox(height: 8),
             TextField(
               controller: _textController,
               maxLines: 7,
-              decoration: const InputDecoration(
-                hintText: 'Metninizi buraya yapıştırın veya yukarıdaki kaynakları seçin...',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: 'Kopyaladığınız metni buraya yapıştırın veya yukarıdaki kaynakları kullanın...',
+                border: const OutlineInputBorder(),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colorScheme.primary, width: 2)),
               ),
             ),
             const SizedBox(height: 24),
 
-            // BAŞLATMA BUTONU
-            SizedBox(
+            // ÇALIŞMAYI BAŞLATMA BUTONU
+            SWidth(
               width: double.infinity,
-              height: 52,
+              height: 54,
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.play_arrow),
-                label: const Text('Okuma Egzersizini Başlat', style: TextStyle(fontSize: 16)),
+                label: const Text('Okuma Egzersizini Başlat', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
+                  elevation: 4,
                 ),
                 onPressed: () {
                   if (_textController.text.trim().isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Lütfen önce bir metin ekleyin!')),
+                      const SnackBar(content: Text('Lütfen önce bir metin ekleyin veya dosya yükleyin!')),
                     );
                     return;
                   }
@@ -272,5 +316,18 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+}
+
+// Yardımcı widget (SizedBox kısaltması kütüphane çakışması önleme amaçlı)
+class SWidth extends StatelessWidget {
+  final double width;
+  final double height;
+  final Widget child;
+  const SWidth({super.key, required this.width, required this.height, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(width: width, height: height, child: child);
   }
 }
