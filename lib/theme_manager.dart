@@ -1,77 +1,92 @@
 import 'package:flutter/material.dart';
 
-enum AppThemePalette { deepPurple, oceanBlue, emeraldGreen, sunsetOrange, warmSepia }
+enum AppThemePalette { classic, amber, darkVoid, mint }
 
-class ThemeManager extends ChangeNotifier {
+class ThemeManager {
   static final ThemeManager instance = ThemeManager._internal();
   ThemeManager._internal();
 
-  // İstek Doğrultusunda: Uygulama varsayılan olarak karanlık modda başlar
-  ThemeMode _themeMode = ThemeMode.dark;
-  AppThemePalette _currentPalette = AppThemePalette.deepPurple;
-
-  // Kalıcı Font ve Arayüz Ayarları
+  ThemeMode themeMode = ThemeMode.light;
+  AppThemePalette currentPalette = AppThemePalette.classic;
+  
   double readerFontSize = 18.0;
-  String readerFontFamily = 'monospace'; // monospace, serif, sans-serif
-  Color readerTextColor = Colors.red; // Varsayılan vurgu ve odak rengi
-
-  ThemeMode get themeMode => _themeMode;
-  AppThemePalette get currentPalette => _currentPalette;
+  String readerFontFamily = 'sans-serif';
+  Color readerTextColor = Colors.red;
 
   void setThemeMode(ThemeMode mode) {
-    _themeMode = mode;
-    notifyListeners();
+    themeMode = mode;
   }
 
   void setPalette(AppThemePalette palette) {
-    _currentPalette = palette;
-    notifyListeners();
+    currentPalette = palette;
   }
 
-  void updateReaderSettings(double size, String family, Color color) {
+  void updateReaderSettings(double size, String fontFamily, Color textColor) {
     readerFontSize = size;
-    readerFontFamily = family;
-    readerTextColor = color;
-    notifyListeners();
-  }
-
-  Color get seedColor {
-    switch (_currentPalette) {
-      case AppThemePalette.deepPurple: return Colors.deepPurple;
-      case AppThemePalette.oceanBlue: return const Color(0xFF0277BD);
-      case AppThemePalette.emeraldGreen: return const Color(0xFF2E7D32);
-      case AppThemePalette.sunsetOrange: return const Color(0xFFE65100);
-      case AppThemePalette.warmSepia: return const Color(0xFF6D4C41);
-    }
+    readerFontFamily = fontFamily;
+    readerTextColor = textColor;
   }
 
   String getPaletteName(AppThemePalette palette) {
     switch (palette) {
-      case AppThemePalette.deepPurple: return 'Tayf Mor';
-      case AppThemePalette.oceanBlue: return 'Okyanus Mavi';
-      case AppThemePalette.emeraldGreen: return 'Zümrüt Yeşil';
-      case AppThemePalette.sunsetOrange: return 'Ateş Turuncusu';
-      case AppThemePalette.warmSepia: return 'Sıcak Sepya';
+      case AppThemePalette.classic: return "Klasik";
+      case AppThemePalette.amber: return "Kehribar";
+      case AppThemePalette.darkVoid: return "Uzay";
+      case AppThemePalette.mint: return "Nane";
     }
   }
 
-  ThemeData get lightTheme {
-    final bool isSepia = _currentPalette == AppThemePalette.warmSepia;
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: seedColor,
-        brightness: Brightness.light,
-        surface: isSepia ? const Color(0xFFFBF0D9) : null,
-      ),
-      scaffoldBackgroundColor: isSepia ? const Color(0xFFFBF0D9) : null,
-    );
+  /// Aktif temaya ve mod ayarlarına göre okuma arka plan rengini belirler
+  Color getReaderBackgroundColor() {
+    if (themeMode == ThemeMode.dark) {
+      return const Color(0xFF121212);
+    }
+    switch (currentPalette) {
+      case AppThemePalette.amber: return const Color(0xFFFDF6E3);
+      case AppThemePalette.mint: return const Color(0xFFE8F5E9);
+      case AppThemePalette.darkVoid: return const Color(0xFF1C1C1E);
+      default: return Colors.white;
+    }
   }
 
-  ThemeData get darkTheme {
+  /// Aktif temaya göre okuma metni (highlight dışı) rengini belirler
+  Color getReaderTextColor() {
+    if (themeMode == ThemeMode.dark) {
+      return const Color(0xFFE5E5E5);
+    }
+    switch (currentPalette) {
+      case AppThemePalette.darkVoid: return const Color(0xFFE5E5E5);
+      default: return const Color(0xFF2C3E50);
+    }
+  }
+
+  /// Seçili temaya göre Flutter ana temasını döndürür
+  ThemeData getThemeData(bool isDark) {
+    final baseMode = isDark ? ColorScheme.dark : ColorScheme.light;
+    Color primaryColor = Colors.blue;
+
+    if (!isDark) {
+      switch (currentPalette) {
+        case AppThemePalette.amber:
+          primaryColor = Colors.amber.shade900;
+          break;
+        case AppThemePalette.mint:
+          primaryColor = Colors.green.shade700;
+          break;
+        case AppThemePalette.darkVoid:
+          primaryColor = Colors.indigo.shade900;
+          break;
+        default:
+          primaryColor = Colors.blue;
+      }
+    }
+
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(seedColor: seedColor, brightness: Brightness.dark),
+      brightness: isDark ? Brightness.dark : Brightness.light,
+      colorScheme: baseMode(
+        primary: primaryColor,
+      ),
     );
   }
 }
