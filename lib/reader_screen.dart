@@ -66,7 +66,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
     int focusIndex = SpeedReaderEngine.getOptimalFocusIndex(word);
     
-    // Güvenlik kontrolü (kelime uzunluğu dışına taşmamak için)
     if (focusIndex >= word.length) {
       focusIndex = 0;
     }
@@ -81,7 +80,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
       fontFamily: 'monospace',
     );
 
-    // Temaya duyarlı standart metin rengi
     final defaultColor = Theme.of(context).textTheme.bodyLarge?.color;
 
     return RichText(
@@ -90,7 +88,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
         style: textStyle.copyWith(color: defaultColor),
         children: [
           TextSpan(text: leftPart),
-          // Hatalı FontWeight.black yerine kararlı ve en kalın değer olan FontWeight.w900 kullanıldı
           TextSpan(
             text: focusChar,
             style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w900),
@@ -112,112 +109,116 @@ class _ReaderScreenState extends State<ReaderScreen> {
         backgroundColor: colorScheme.primaryContainer,
         foregroundColor: colorScheme.onPrimaryContainer,
       ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // İLERLEME ÇUBUĞU
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
+      // Cihazın alt kısmındaki sanal tuşların butonları ezmesini önlemek için SafeArea eklendi
+      body: SafeArea(
+        bottom: true,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // İLERLEME ÇUBUĞU
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  LinearProgressIndicator(
+                    value: _engine.words.isEmpty ? 0 : (_currentWordIndex + 1) / _engine.words.length,
+                    backgroundColor: colorScheme.surfaceContainerHighest,
+                    valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Kelime: ${_currentWordIndex + 1} / ${_engine.words.length}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+
+            // ORTA KISIM: Kılavuz Çizgileri ve Harf Odaklı Gösterim
+            Column(
               children: [
-                LinearProgressIndicator(
-                  value: _engine.words.isEmpty ? 0 : (_currentWordIndex + 1) / _engine.words.length,
-                  backgroundColor: colorScheme.surfaceContainerHighest,
-                  valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                Container(
+                  width: 320,
+                  height: 2,
+                  color: colorScheme.outline,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Kelime: ${_currentWordIndex + 1} / ${_engine.words.length}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                const SizedBox(height: 4),
+                Icon(Icons.arrow_drop_down, color: colorScheme.primary, size: 30),
+                Container(
+                  alignment: Alignment.center,
+                  height: 120,
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _buildSpritzFocusWord(currentWord),
+                ),
+                Icon(Icons.arrow_drop_up, color: colorScheme.primary, size: 30),
+                const SizedBox(height: 4),
+                Container(
+                  width: 320,
+                  height: 2,
+                  color: colorScheme.outline,
                 ),
               ],
             ),
-          ),
 
-          // ORTA KISIM: Kılavuz Çizgileri ve Harf Odaklı Gösterim
-          Column(
-            children: [
-              Container(
-                width: 320,
-                height: 2,
-                color: colorScheme.outline,
+            // KONTROL PANELİ
+            Padding(
+              padding: const EdgeInsets.only(bottom: 24.0, left: 16, right: 16),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.speed, color: colorScheme.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Hız (WPM): $_wpm',
+                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    value: _wpm.toDouble(),
+                    min: 100,
+                    max: 1000,
+                    divisions: 18,
+                    activeColor: colorScheme.primary,
+                    inactiveColor: colorScheme.surfaceContainerHighest,
+                    label: _wpm.toString(),
+                    onChanged: (value) {
+                      setState(() {
+                        _wpm = value.toInt();
+                      });
+                      if (_isPlaying) {
+                        _startTimer();
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        iconSize: 38,
+                        icon: const Icon(Icons.refresh),
+                        color: colorScheme.secondary,
+                        onPressed: _resetTimer,
+                      ),
+                      const SizedBox(width: 20),
+                      FloatingActionButton(
+                        backgroundColor: colorScheme.primary,
+                        foregroundColor: colorScheme.onPrimary,
+                        onPressed: _isPlaying ? _pauseTimer : _startTimer,
+                        child: Icon(_isPlaying ? Icons.pause : Icons.play_arrow, size: 30),
+                      ),
+                      const SizedBox(width: 58),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(height: 4),
-              Icon(Icons.arrow_drop_down, color: colorScheme.primary, size: 30),
-              Container(
-                alignment: Alignment.center,
-                height: 120,
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _buildSpritzFocusWord(currentWord),
-              ),
-              Icon(Icons.arrow_drop_up, color: colorScheme.primary, size: 30),
-              const SizedBox(height: 4),
-              Container(
-                width: 320,
-                height: 2,
-                color: colorScheme.outline,
-              ),
-            ],
-          ),
-
-          // KONTROL PANELİ
-          Padding(
-            padding: const EdgeInsets.only(bottom: 40.0, left: 16, right: 16),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.speed, color: colorScheme.primary),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Hız (WPM): $_wpm',
-                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                Slider(
-                  value: _wpm.toDouble(),
-                  min: 100,
-                  max: 1000,
-                  divisions: 18,
-                  activeColor: colorScheme.primary,
-                  inactiveColor: colorScheme.surfaceContainerHighest,
-                  label: _wpm.toString(),
-                  onChanged: (value) {
-                    setState(() {
-                      _wpm = value.toInt();
-                    });
-                    if (_isPlaying) {
-                      _startTimer();
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      iconSize: 38,
-                      icon: const Icon(Icons.refresh),
-                      color: colorScheme.secondary,
-                      onPressed: _resetTimer,
-                    ),
-                    const SizedBox(width: 20),
-                    FloatingActionButton(
-                      backgroundColor: colorScheme.primary,
-                      foregroundColor: colorScheme.onPrimary,
-                      onPressed: _isPlaying ? _pauseTimer : _startTimer,
-                      child: Icon(_isPlaying ? Icons.pause : Icons.play_arrow, size: 30),
-                    ),
-                    const SizedBox(width: 58),
-                  ],
-                ),
-              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
