@@ -17,6 +17,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
   bool _isPlaying = false;
   Timer? _timer;
 
+  final String _buildNumber = "BUILD_NUMBER_PLACEHOLDER";
+
   @override
   void initState() {
     super.initState();
@@ -60,7 +62,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
   }
 
-  /// Kelimeyi alıp sadece Spritz standardına göre en uygun odak harfini (ORP) kırmızı yapar.
   Widget _buildSpritzFocusWord(String word) {
     if (word.isEmpty) return const SizedBox.shrink();
 
@@ -102,41 +103,46 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Widget build(BuildContext context) {
     String currentWord = _engine.words[_currentWordIndex];
     final colorScheme = Theme.of(context).colorScheme;
+    final displayBuild = _buildNumber.contains("PLACEHOLDER") ? "Local" : _buildNumber;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('RSVP Okuma Motoru'),
+        title: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Text('RSVP Okuma Motoru', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              'V1.$displayBuild | By: Tayfun YAMAK ©',
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w400),
+            ),
+          ],
+        ),
         backgroundColor: colorScheme.primaryContainer,
         foregroundColor: colorScheme.onPrimaryContainer,
       ),
-      // Cihazın alt kısmındaki sanal tuşların butonları ezmesini önlemek için SafeArea eklendi
+      // Sanal tuşların butonları ezmesini ve taşmasını yüzde yüz engellemek için kaydırılabilir gövde mimarisi
       body: SafeArea(
-        bottom: true,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // İLERLEME ÇUBUĞU
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  LinearProgressIndicator(
-                    value: _engine.words.isEmpty ? 0 : (_currentWordIndex + 1) / _engine.words.length,
-                    backgroundColor: colorScheme.surfaceContainerHighest,
-                    valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Kelime: ${_currentWordIndex + 1} / ${_engine.words.length}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-
-            // ORTA KISIM: Kılavuz Çizgileri ve Harf Odaklı Gösterim
-            Column(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                // İLERLEME ÇUBUĞU
+                LinearProgressIndicator(
+                  value: _engine.words.isEmpty ? 0 : (_currentWordIndex + 1) / _engine.words.length,
+                  backgroundColor: colorScheme.surfaceContainerHighest,
+                  valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Kelime: ${_currentWordIndex + 1} / ${_engine.words.length}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 60),
+
+                // ORTA KISIM: Odak Çerçevesi
                 Container(
                   width: 320,
                   height: 2,
@@ -148,7 +154,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   alignment: Alignment.center,
                   height: 120,
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: _buildSpritzFocusWord(currentWord),
                 ),
                 Icon(Icons.arrow_drop_up, color: colorScheme.primary, size: 30),
@@ -158,66 +163,60 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   height: 2,
                   color: colorScheme.outline,
                 ),
+                const SizedBox(height: 60),
+
+                // KONTROL PANELİ
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.speed, color: colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Hız (WPM): $_wpm',
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: _wpm.toDouble(),
+                  min: 100,
+                  max: 1000,
+                  divisions: 18,
+                  activeColor: colorScheme.primary,
+                  inactiveColor: colorScheme.surfaceContainerHighest,
+                  label: _wpm.toString(),
+                  onChanged: (value) {
+                    setState(() {
+                      _wpm = value.toInt();
+                    });
+                    if (_isPlaying) {
+                      _startTimer();
+                    }
+                  },
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      iconSize: 38,
+                      icon: const Icon(Icons.refresh),
+                      color: colorScheme.secondary,
+                      onPressed: _resetTimer,
+                    ),
+                    const SizedBox(width: 20),
+                    FloatingActionButton(
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
+                      onPressed: _isPlaying ? _pauseTimer : _startTimer,
+                      child: Icon(_isPlaying ? Icons.pause : Icons.play_arrow, size: 30),
+                    ),
+                    const SizedBox(width: 58),
+                  ],
+                ),
               ],
             ),
-
-            // KONTROL PANELİ
-            Padding(
-              padding: const EdgeInsets.only(bottom: 24.0, left: 16, right: 16),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.speed, color: colorScheme.primary),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Hız (WPM): $_wpm',
-                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  Slider(
-                    value: _wpm.toDouble(),
-                    min: 100,
-                    max: 1000,
-                    divisions: 18,
-                    activeColor: colorScheme.primary,
-                    inactiveColor: colorScheme.surfaceContainerHighest,
-                    label: _wpm.toString(),
-                    onChanged: (value) {
-                      setState(() {
-                        _wpm = value.toInt();
-                      });
-                      if (_isPlaying) {
-                        _startTimer();
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        iconSize: 38,
-                        icon: const Icon(Icons.refresh),
-                        color: colorScheme.secondary,
-                        onPressed: _resetTimer,
-                      ),
-                      const SizedBox(width: 20),
-                      FloatingActionButton(
-                        backgroundColor: colorScheme.primary,
-                        foregroundColor: colorScheme.onPrimary,
-                        onPressed: _isPlaying ? _pauseTimer : _startTimer,
-                        child: Icon(_isPlaying ? Icons.pause : Icons.play_arrow, size: 30),
-                      ),
-                      const SizedBox(width: 58),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
