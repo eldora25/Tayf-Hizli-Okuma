@@ -20,7 +20,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
   bool _isPlaying = false;
   Timer? _timer;
   
-  // 1: RSVP, 2: Tüm Sayfa Kelime Akışı, 3: Satır Merkez Odak, 4: Sayfa Yoğunluk Akışı
   int _readingMode = 1; 
   int _currentPage = 0;
   List<String> _pageSegments = [];
@@ -32,6 +31,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     super.initState();
     _wpm = widget.activeBook?.savedWpm ?? 300;
     _currentPage = widget.activeBook?.lastPage ?? 0;
+    _readingMode = widget.activeBook?.savedMode ?? 1;
     _setupContent();
   }
 
@@ -86,7 +86,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   void _saveCurrentProgress() {
     if (widget.activeBook != null) {
-      BookDatabase.instance.saveProgress(widget.activeBook!.id, _currentPage, _wpm);
+      BookDatabase.instance.saveProgress(widget.activeBook!.id, _currentPage, _wpm, _readingMode);
     }
   }
 
@@ -114,7 +114,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       fontSize: ThemeManager.instance.readerFontSize,
       fontFamily: ThemeManager.instance.readerFontFamily,
       fontWeight: FontWeight.bold,
-      backgroundColor: highlightAll ? Colors.yellow.withOpacity(0.4) : null,
+      backgroundColor: highlightAll ? Colors.yellow.withOpacity(0.35) : null,
     );
 
     return RichText(
@@ -122,7 +122,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
         style: style.copyWith(color: customColor ?? Theme.of(context).textTheme.bodyLarge?.color),
         children: [
           TextSpan(text: left),
-          TextSpan(text: center, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w900)),
+          // Kullanıcının ayarlar panelinden seçtiği özel odak rengi uygulanır
+          TextSpan(text: center, style: TextStyle(color: ThemeManager.instance.readerTextColor, fontWeight: FontWeight.w900)),
           TextSpan(text: right),
         ],
       ),
@@ -172,51 +173,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
         style: TextStyle(
           fontSize: ThemeManager.instance.readerFontSize,
           fontFamily: ThemeManager.instance.readerFontFamily,
-          color: ThemeManager.instance.readerCustomTextColor,
         ),
       );
     }
-  }
-
-  void _showStyleSettings() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setMState) => Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Okuma Paneli Metin Ayarları', style: Theme.of(context).textTheme.titleMedium),
-              Slider(
-                value: ThemeManager.instance.readerFontSize,
-                min: 14, max: 30, divisions: 8,
-                label: "Boyut: ${ThemeManager.instance.readerFontSize.round()}",
-                onChanged: (v) {
-                  setMState(() => ThemeManager.instance.updateReaderSettings(v, ThemeManager.instance.readerFontFamily, ThemeManager.instance.readerCustomTextColor));
-                  setState(() {});
-                },
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: ['monospace', 'serif', 'sans-serif'].map((font) {
-                  return ChoiceChip(
-                    label: Text(font),
-                    selected: ThemeManager.instance.readerFontFamily == font,
-                    onSelected: (selected) {
-                      if (selected) {
-                        setMState(() => ThemeManager.instance.updateReaderSettings(ThemeManager.instance.readerFontSize, font, ThemeManager.instance.readerCustomTextColor));
-                        setState(() {});
-                      }
-                    },
-                  );
-                }).toList(),
-              )
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   @override
@@ -228,15 +187,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
       appBar: AppBar(
         title: Column(
           children: [
-            Text(widget.activeBook != null ? widget.activeBook!.title : 'Tayf RSVP Motoru', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-            Text('Sayfa: ${_currentPage + 1}/${_pageSegments.isNotEmpty ? _pageSegments.length : 1} | V1.$displayBuild', style: const TextStyle(fontSize: 10)),
+            Text(widget.activeBook != null ? widget.activeBook!.title : 'Tayf RSVP Motoru', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            Text('Sayfa: ${_currentPage + 1}/${_pageSegments.isNotEmpty ? _pageSegments.length : 1} | Mod: $_readingMode | V1.$displayBuild', style: const TextStyle(fontSize: 10)),
           ],
         ),
         backgroundColor: colorScheme.primaryContainer,
         foregroundColor: colorScheme.onPrimaryContainer,
-        actions: [
-          IconButton(icon: const Icon(Icons.font_download), onPressed: _showStyleSettings),
-        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -244,29 +200,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [1, 2, 3, 4].map((modeIndex) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                      child: ChoiceChip(
-                        label: Text('Mod $modeIndex'),
-                        selected: _readingMode == modeIndex,
-                        onSelected: (val) {
-                          if (val) {
-                            _pauseTimer();
-                            setState(() => _readingMode = modeIndex);
-                          }
-                        },
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: 20),
-              
-              // HATA DÜZELTİLDİ: Container içinde minHeight yerine constraints: BoxConstraints() kullanıldı
+              // Dinamik Okuma Arayüz Kutusu
               Container(
                 constraints: const BoxConstraints(minHeight: 180),
                 width: double.infinity,
@@ -275,13 +209,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 padding: const EdgeInsets.all(12),
                 child: _buildReaderBody(),
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 20),
 
-              Text('Hız Ayarı (WPM): $_wpm', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text('Okuma Hızı (WPM): $_wpm', style: const TextStyle(fontWeight: FontWeight.bold)),
               Slider(
                 value: _wpm.toDouble(),
                 min: 100, max: 1000,
-                divisions: 90,
+                divisions: 90, // Tam 10'ar 10'ar artış ayarı garantilenmiştir
                 label: _wpm.toString(),
                 onChanged: (val) {
                   setState(() => _wpm = val.toInt());
@@ -305,7 +239,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   IconButton(icon: const Icon(Icons.skip_next), onPressed: widget.activeBook != null ? () => _changePage(1) : null),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               Text('By: Tayfun YAMAK ©', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
             ],
           ),
