@@ -39,15 +39,20 @@ class BookDatabase {
 
   List<BookModel> getBooks() => _myBooks;
 
-  /// Gezgin arayüzünden seçilen birden fazla kitabı kuyruğa alıp kalıcı veritabanına ekler
+  /// Android döküman seçici API'sinden gelen gerçek dosyaları kuyruğa alıp işler
   void addMultipleBooks(List<Map<String, String>> newBooks) {
     for (var bookData in newBooks) {
       final title = bookData['title'] ?? 'Bilinmeyen Kitap.txt';
       final format = bookData['format'] ?? 'TXT';
       final content = bookData['content'] ?? '';
       
+      // Mükerrer kayıt kontrolü (Aynı isimde kitap varsa ekleme)
+      if (_myBooks.any((b) => b.title == title)) continue;
+
       final id = (_myBooks.length + 1).toString();
-      int pages = (content.length / 100).ceil();
+      
+      // Dinamik sayfa adedi hesaplama standardı
+      int pages = (content.length / 120).ceil();
       if (pages < 1) pages = 1;
 
       _myBooks.add(BookModel(
