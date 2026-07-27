@@ -1,0 +1,19 @@
+name: tayf_hizli_okuma
+description: Gelişmiş Tayf Hızlı Okuma ve E-Kitap Eğitim Uygulaması
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  http: ^1.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
