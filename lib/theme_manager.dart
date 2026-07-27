@@ -6,13 +6,14 @@ class ThemeManager extends ChangeNotifier {
   static final ThemeManager instance = ThemeManager._internal();
   ThemeManager._internal();
 
-  ThemeMode _themeMode = ThemeMode.system;
+  // İstek Doğrultusunda: Uygulama varsayılan olarak karanlık modda başlar
+  ThemeMode _themeMode = ThemeMode.dark;
   AppThemePalette _currentPalette = AppThemePalette.deepPurple;
 
-  // Kitap Okuma Alanı Kişiselleştirme Ayarları
+  // Kalıcı Font ve Arayüz Ayarları
   double readerFontSize = 18.0;
   String readerFontFamily = 'monospace'; // monospace, serif, sans-serif
-  Color? readerCustomTextColor;
+  Color readerTextColor = Colors.red; // Varsayılan vurgu ve odak rengi
 
   ThemeMode get themeMode => _themeMode;
   AppThemePalette get currentPalette => _currentPalette;
@@ -27,10 +28,10 @@ class ThemeManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateReaderSettings(double size, String family, Color? color) {
+  void updateReaderSettings(double size, String family, Color color) {
     readerFontSize = size;
     readerFontFamily = family;
-    readerCustomTextColor = color;
+    readerTextColor = color;
     notifyListeners();
   }
 
