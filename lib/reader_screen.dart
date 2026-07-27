@@ -60,7 +60,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
   }
 
-  /// Kelimenin tamamını kalın ve kırmızı renkte basar
   Widget _buildRedWord(String word) {
     if (word.isEmpty) return const SizedBox.shrink();
 
@@ -97,7 +96,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               children: [
                 LinearProgressIndicator(
                   value: _engine.words.isEmpty ? 0 : (_currentWordIndex + 1) / _engine.words.length,
-                  backgroundColor: colorScheme.surfaceVariant,
+                  backgroundColor: colorScheme.surfaceContainerHighest,
                   valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
                 ),
                 const SizedBox(height: 8),
@@ -158,7 +157,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   max: 1000,
                   divisions: 18,
                   activeColor: colorScheme.primary,
-                  inactiveColor: colorScheme.surfaceVariant,
+                  inactiveColor: colorScheme.surfaceContainerHighest,
                   label: _wpm.toString(),
                   onChanged: (value) {
                     setState(() {
