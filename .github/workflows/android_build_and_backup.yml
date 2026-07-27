@@ -70,22 +70,28 @@ jobs:
             flutter create --platforms=android --org com.tayf.hizliokuma .
           fi
 
-      # [KRİTİK GÜNCELLEME - HATA ÇÖZÜMÜ]: file_picker İçin Android API 36 Zorlaması
+      # 8. [HATA ÇÖZÜMÜ]: Tüm Eklentiler (Plugin) ve App İçin API 36 Zorlaması
       - name: Android compileSdk Sürümünü 36'ya Yükselt
         run: |
-          if [ -f "android/app/build.gradle" ]; then
-            sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 36/g' android/app/build.gradle
-            sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/g' android/app/build.gradle
-            sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 36/g' android/app/build.gradle
-            sed -i 's/compileSdk 33/compileSdk 36/g' android/app/build.gradle
-            sed -i 's/compileSdk 34/compileSdk 36/g' android/app/build.gradle
-            sed -i 's/compileSdk = 33/compileSdk = 36/g' android/app/build.gradle
-            sed -i 's/compileSdk = 34/compileSdk = 36/g' android/app/build.gradle
-            sed -i 's/compileSdkVersion 33/compileSdkVersion 36/g' android/app/build.gradle
-            sed -i 's/compileSdkVersion 34/compileSdkVersion 36/g' android/app/build.gradle
-          fi
+          # Proje düzeyinde tüm alt projelere (file_picker dahil) API 36 zorlaması ekler
+          cat << 'EOF' >> android/build.gradle
+          
+          subprojects {
+              afterEvaluate { project ->
+                  if (project.hasProperty('android')) {
+                      project.android {
+                          compileSdkVersion 36
+                      }
+                  }
+              }
+          }
+          EOF
+          
+          # Garanti olması adına App modülü için manuel düzeltme
+          sed -i -E 's/compileSdk(Version)? .*/compileSdk 36/g' android/app/build.gradle || true
+          sed -i -E 's/compileSdk(Version)? = .*/compileSdk = 36/g' android/app/build.gradle || true
 
-      # 8. Android Yerel Dosya Seçiciye UTF-8 Türkçe Karakter Desteği Eklendi
+      # 9. Android Yerel Dosya Seçiciye UTF-8 Türkçe Karakter Desteği Eklendi
       - name: Android Yerel Depolama Erişim Kodlarını Yaz (SAF Entegrasyonu)
         run: |
           mkdir -p android/app/src/main/kotlin/com/tayf/hizliokuma/tayf_hizli_okuma
@@ -200,22 +206,22 @@ jobs:
           }
           EOF
 
-      # 9. Sürüm Yerleştirmesi
+      # 10. Sürüm Yerleştirmesi
       - name: Build Numarasını Kod Yapısına Yaz
         run: |
           BUILD_NO="${{ github.run_number }}"
           sed -i "s/BUILD_NUMBER_PLACEHOLDER/$BUILD_NO/g" lib/home_screen.dart || true
           sed -i "s/BUILD_NUMBER_PLACEHOLDER/$BUILD_NO/g" lib/reader_screen.dart || true
 
-      # 10. Bağımlılıkları Çek
+      # 11. Bağımlılıkları Çek
       - name: Flutter Bağımlılıklarını Getir
         run: flutter pub get
 
-      # 11. Android Debug APK Derle
+      # 12. Android Debug APK Derle
       - name: Android Debug APK Derle
         run: flutter build apk --debug
 
-      # 12. APK Dosyasını Dinamik Yeniden İsimlendir
+      # 13. APK Dosyasını Dinamik Yeniden İsimlendir
       - name: APK Dosyasını Dinamik Yeniden İsimlendir
         run: |
           BUILD_NO="${{ github.run_number }}"
@@ -227,7 +233,7 @@ jobs:
             exit 1
           fi
 
-      # 13. APK Çıktısını Yayınla (Upload Artifact)
+      # 14. APK Çıktısını Yayınla (Upload Artifact)
       - name: APK Çıktısını Yayınla (Upload Artifact)
         uses: actions/upload-artifact@v4
         with:
