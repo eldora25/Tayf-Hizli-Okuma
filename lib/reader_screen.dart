@@ -90,10 +90,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
         style: textStyle.copyWith(color: defaultColor),
         children: [
           TextSpan(text: leftPart),
-          // Sadece odaklanılan harf kalın kırmızı renkte gösterilir
+          // Hatalı FontWeight.black yerine kararlı ve en kalın değer olan FontWeight.w900 kullanıldı
           TextSpan(
             text: focusChar,
-            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.black),
+            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w900),
           ),
           TextSpan(text: rightPart),
         ],
