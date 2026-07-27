@@ -73,26 +73,48 @@ jobs:
       # 8. [HATA ÇÖZÜMÜ]: Tüm Eklentiler (Plugin) ve App İçin API 36 Zorlaması
       - name: Android compileSdk Sürümünü 36'ya Yükselt
         run: |
-          # Proje düzeyinde tüm alt projelere (file_picker dahil) API 36 zorlaması ekler
-          cat << 'EOF' >> android/build.gradle
+          # Dinamik arama ile hem Groovy (.gradle) hem de Kotlin DSL (.kts) dosyalarını bul ve API'yi 36 yap
+          find android/ -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) -exec sed -i 's/flutter.compileSdkVersion/36/g' {} +
+          find android/ -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) -exec sed -i 's/compileSdkVersion 33/compileSdkVersion 36/g' {} +
+          find android/ -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) -exec sed -i 's/compileSdkVersion 34/compileSdkVersion 36/g' {} +
+          find android/ -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) -exec sed -i 's/compileSdk = 33/compileSdk = 36/g' {} +
+          find android/ -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) -exec sed -i 's/compileSdk = 34/compileSdk = 36/g' {} +
+          find android/ -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) -exec sed -i 's/compileSdk 33/compileSdk 36/g' {} +
+          find android/ -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) -exec sed -i 's/compileSdk 34/compileSdk 36/g' {} +
           
-          subprojects {
-              afterEvaluate { project ->
-                  if (project.hasProperty('android')) {
-                      project.android {
-                          compileSdkVersion 36
-                      }
-                  }
-              }
-          }
+          # Groovy sistemi (.gradle) için alt projelere (plugins) API 36 zorlaması
+          if [ -f "android/build.gradle" ]; then
+            cat << 'EOF' >> android/build.gradle
+            
+            subprojects {
+                afterEvaluate { project ->
+                    if (project.hasProperty('android')) {
+                        project.android {
+                            compileSdkVersion 36
+                        }
+                    }
+                }
+            }
           EOF
+          fi
           
-          # App modülü için güvenli düzeltme (Regex yerine doğrudan değişken değişimi)
-          sed -i 's/flutter.compileSdkVersion/36/g' android/app/build.gradle
-
-      # NOT: Eski MainActivity.kt (SAF Entegrasyonu) bloğu tamamen KALDIRILDI.
-      # Artık dosya seçme işlemini "file_picker" paketi Dart üzerinden güvenli ve hatasız bir şekilde yapıyor.
-      # Bu sayede Kotlin derleme çökmesi ve "APK bulunamadı" hatası ortadan kalkmıştır.
+          # Kotlin DSL sistemi (.kts) için alt projelere (plugins) API 36 zorlaması
+          if [ -f "android/build.gradle.kts" ]; then
+            cat << 'EOF' >> android/build.gradle.kts
+            
+            subprojects {
+                afterEvaluate {
+                    val androidExtension = extensions.findByName("android")
+                    if (androidExtension != null) {
+                        try {
+                            val method = androidExtension.javaClass.getMethod("setCompileSdkVersion", Int::class.javaPrimitiveType)
+                            method.invoke(androidExtension, 36)
+                        } catch (e: Exception) { }
+                    }
+                }
+            }
+          EOF
+          fi
 
       # 9. Sürüm Yerleştirmesi
       - name: Build Numarasını Kod Yapısına Yaz
