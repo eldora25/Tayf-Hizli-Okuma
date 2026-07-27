@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart'; // Sizin kendi tasarımınız olan ana arayüz dosyasına bağlanır
+import 'home_screen.dart';
+import 'theme_manager.dart';
 
 void main() {
   runApp(const MyApp());
@@ -10,14 +11,19 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Tayf Hızlı Okuma',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorSchemeSeed: Colors.blue,
-        useMaterial3: true,
-      ),
-      home: const HomeScreen(), // Doğrudan kendi profesyonel arayüzünüze yönlendirir
+    // AnimatedBuilder, ThemeManager içindeki notifyListeners() tetiklendiğinde uygulamayı yeniden çizer
+    return AnimatedBuilder(
+      animation: ThemeManager.instance,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'Tayf Hızlı Okuma',
+          debugShowCheckedModeBanner: false,
+          themeMode: ThemeManager.instance.themeMode,
+          theme: ThemeManager.instance.getThemeData(false),
+          darkTheme: ThemeManager.instance.getThemeData(true),
+          home: const HomeScreen(),
+        );
+      },
     );
   }
 }
