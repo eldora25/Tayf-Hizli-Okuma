@@ -70,7 +70,7 @@ jobs:
             flutter create --platforms=android --org com.tayf.hizliokuma .
           fi
 
-      # [KRİTİK HATA ÇÖZÜMÜ] 8. Android Yerel Dosya Seçici Kotlin Kodları Hatalardan Arındırıldı
+      # [KRİTİK GÜNCELLEME]: Android Yerel Dosya Seçiciye UTF-8 Türkçe Karakter Desteği Eklendi
       - name: Android Yerel Depolama Erişim Kodlarını Yaz (SAF Entegrasyonu)
         run: |
           mkdir -p android/app/src/main/kotlin/com/tayf/hizliokuma/tayf_hizli_okuma
@@ -86,10 +86,10 @@ jobs:
           import io.flutter.plugin.common.MethodChannel
           import java.io.BufferedReader
           import java.io.InputStreamReader
+          import kotlin.text.Charsets // Türkçe karakter desteği (UTF-8) kütüphanesi eklendi
 
           class MainActivity: FlutterActivity() {
               
-              // HATA 1 VE 2 ÇÖZÜMÜ: Sabit değerler companion object (Eşlik eden nesne) içerisine alındı
               companion object {
                   private const val CHANNEL = "com.tayf.hizliokuma/storage"
                   private const val PICK_FILES_REQUEST_CODE = 4242
@@ -127,7 +127,6 @@ jobs:
                       if (resultCode == Activity.RESULT_OK && data != null) {
                           val fileList = mutableListOf<Map<String, String>>()
                           
-                          // HATA 3 ÇÖZÜMÜ: Kotlin'in null güvenliği (!! ve safe-call) kullanıldı
                           val clipData = data.clipData
                           if (clipData != null) {
                               val count = clipData.itemCount
@@ -162,12 +161,13 @@ jobs:
                   var content = ""
                   try {
                       contentResolver.openInputStream(uri)?.use { inputStream ->
-                          BufferedReader(InputStreamReader(inputStream)).use { reader ->
+                          // HATA BURADA ÇÖZÜLDÜ: Charsets.UTF_8 zorunlu kılındı.
+                          BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8)).use { reader ->
                               val sb = StringBuilder()
                               var line: String?
                               var lineCount = 0
                               while (reader.readLine().also { line = it } != null && lineCount < 200) {
-                                  sb.append(line).append(" ")
+                                  sb.append(line).append("\n") // Boşluk yerine satır atlaması korundu
                                   lineCount++
                               }
                               content = sb.toString().trim()
