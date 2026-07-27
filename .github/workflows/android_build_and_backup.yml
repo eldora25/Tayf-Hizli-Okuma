@@ -5,10 +5,10 @@ on:
     branches:
       - main
       - master
-  workflow_dispatch: # GitHub web arayüzünden manuel tetiklemek için düğme ekler
+  workflow_dispatch:
 
 permissions:
-  contents: write # Yedek dosyalarını repoya push edebilmek için gerekli izin
+  contents: write
 
 jobs:
   build-and-backup:
@@ -34,14 +34,13 @@ jobs:
           fi
           
           # lib klasöründeki tüm dart dosyalarını tarayıp isim formatına göre kopyala
+          # backups klasörünün kendisini taramaması için -not -path parametresi eklendi
           if [ -d "lib" ]; then
-            find lib -type f | while read -r file; do
-              # Dosya adını ve uzantısını ayıkla
+            find lib -type f -not -path "*/$BACKUP_DIR/*" | while read -r file; do
               filename=$(basename -- "$file")
               extension="${filename##*.}"
               filename_no_ext="${filename%.*}"
               
-              # Hedef yedek adını oluştur: dosyaadi.uzantisi.buildno-commitno
               cp "$file" "$BACKUP_DIR/$filename_no_ext.$extension.$BUILD_NO-$COMMIT_NO"
             done
           fi
@@ -52,7 +51,6 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add backups/
-          # Eğer yeni yedek varsa commit et ve push et, yoksa hata verme geç
           git diff-index --quiet HEAD || git commit -m "Sistem Yedeklemesi: Build #$BUILD_NO | Commit: $COMMIT_NO"
           git push
 
@@ -69,15 +67,25 @@ jobs:
         with:
           channel: 'stable'
 
-      # 6. Bağımlılıkları Çek
+      # [KRİTİK ADIM] 6. Eksik Android Klasörünü ve build.gradle Dosyalarını Otomatik Üret
+      - name: Eksik Android Proje Dosyalarını Oluştur
+        run: |
+          if [ ! -d "android" ]; then
+            echo "Android klasörü eksik! Otomatik oluşturuluyor..."
+            flutter create --platforms=android .
+          else
+            echo "Android klasörü mevcut."
+          fi
+
+      # 7. Bağımlılıkları Çek
       - name: Flutter Bağımlılıklarını Getir
         run: flutter pub get
 
-      # 7. Hata Ayıklama (Debug) APK'sını Derle
+      # 8. Android Debug APK'sını Derle
       - name: Android Debug APK Derle
         run: flutter build apk --debug
 
-      # 8. APK Dosyasını Dinamik Olarak Yeniden İsimlendir
+      # 9. APK Dosyasını Dinamik Olarak Yeniden İsimlendir
       - name: APK Dosyasını Dinamik Yeniden İsimlendir
         run: |
           BUILD_NO="${{ github.run_number }}"
@@ -92,7 +100,7 @@ jobs:
             exit 1
           fi
 
-      # 9. Dinamik İsimlendirilen APK'yı İndirilebilir Çıktı (Artifact) Olarak Yükle
+      # 10. Dinamik İsimlendirilen APK'yı İndirilebilir Çıktı Olarak Yükle
       - name: APK Çıktısını Yayınla (Upload Artifact)
         uses: actions/upload-artifact@v4
         with:
