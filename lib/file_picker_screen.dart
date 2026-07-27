@@ -1,4 +1,5 @@
-import 'package:flutter/material';
+import 'package:flutter/material.dart'; // .dart uzantısı eklendi
+import 'package:file_picker/file_picker.dart'; // Gerçek cihaz dosyalarına erişim eklendi
 import 'book_database.dart';
 
 class FilePickerScreen extends StatefulWidget {
@@ -12,16 +13,36 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
   final List<Map<String, dynamic>> _pickedFilesResult = [];
   bool _isSaving = false;
 
-  /// Dosya seçici tetiklendiğinde veya taklit edildiğinde listeye mock veri ekleme simülasyonu
-  void _addMockFileForDemo() {
-    // Örnek dosya byte akış yapısı
-    setState(() {
-      _pickedFilesResult.add({
-        'title': 'Dışarıdan Alınan Kitap Örneği',
-        'format': 'TXT',
-        'bytes': Uri.parse('data:text/plain;charset=utf-8,Bu%20bir%20deneme%20metnidir.').data!.contentAsBytes(),
-      });
-    });
+  /// Cihazın yerel depolamasından gerçek EPUB veya TXT kitapları seçmeyi sağlar
+  Future<void> _pickRealFiles() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['epub', 'txt'],
+        allowMultiple: true,
+        withData: true, // Dosyaları byte formatında ayrıştırmak için zorunludur
+      );
+
+      if (result != null) {
+        setState(() {
+          for (var file in result.files) {
+            if (file.bytes != null) {
+              _pickedFilesResult.add({
+                'title': file.name,
+                'format': file.extension?.toUpperCase() ?? 'BİLİNMİYOR',
+                'bytes': file.bytes!,
+              });
+            }
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(content: Text('Dosya seçilemedi: $e')),
+        );
+      }
+    }
   }
 
   /// "Kitabı Uygulamaya Yükle" butonunun asenkron beklemeyi yapıp ana sayfaya güvenle döndüğü işlev
@@ -74,10 +95,10 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
           : Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
-                stretch: true,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ElevatedButton.icon(
-                    onPressed: _addMockFileForDemo,
+                    onPressed: _pickRealFiles, // Sahte veri ekleyen metot gerçek file_picker ile değiştirildi
                     icon: const Icon(Icons.file_open),
                     label: const Text('Cihazdan Kitap Seç (EPUB/TXT)'),
                   ),
