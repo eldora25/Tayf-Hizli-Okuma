@@ -23,7 +23,6 @@ class BookModel {
 class BookDatabase {
   static final BookDatabase instance = BookDatabase._internal();
   BookDatabase._internal() {
-    // Başlangıç için örnek e-kitap varlıkları
     _myBooks.add(BookModel(
       id: "1",
       title: "Nutuk.epub",
@@ -34,22 +33,13 @@ class BookDatabase {
       savedWpm: 300,
       savedMode: 1,
     ));
-    _myBooks.add(BookModel(
-      id: "2",
-      title: "Hızlı_Okuma_Rehberi.txt",
-      format: "TXT",
-      content: "Bu rehber hızlı okuma becerilerinizi en üst seviyeye çıkarmak için tasarlanmıştır. İlk aşama göz kası antrenmanıdır. İkinci aşama ise kelimeleri seslendirmeden resim olarak görmektir.",
-      totalPages: 2,
-      lastPage: 0,
-      savedWpm: 350,
-      savedMode: 2,
-    ));
   }
 
   final List<BookModel> _myBooks = [];
 
   List<BookModel> getBooks() => _myBooks;
 
+  /// Gezgin arayüzünden seçilen birden fazla kitabı kuyruğa alıp kalıcı veritabanına ekler
   void addMultipleBooks(List<Map<String, String>> newBooks) {
     for (var bookData in newBooks) {
       final title = bookData['title'] ?? 'Bilinmeyen Kitap.txt';
