@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Uygulama Renk Paletleri
 enum AppThemePalette {
   deepPurple,
   oceanBlue,
@@ -29,7 +28,6 @@ class ThemeManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Seçili paletin tohum rengi
   Color get seedColor {
     switch (_currentPalette) {
       case AppThemePalette.deepPurple:
@@ -45,7 +43,6 @@ class ThemeManager extends ChangeNotifier {
     }
   }
 
-  /// Palete göre Türkçe İsim
   String getPaletteName(AppThemePalette palette) {
     switch (palette) {
       case AppThemePalette.deepPurple:
@@ -61,24 +58,30 @@ class ThemeManager extends ChangeNotifier {
     }
   }
 
-  /// Açık Tema Yapılandırması
   ThemeData get lightTheme {
     final bool isSepia = _currentPalette == AppThemePalette.warmSepia;
     return ThemeData(
       useMaterial3: true,
-      colorSchemeSeed: seedColor,
-      brightness: Brightness.light,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: seedColor,
+        brightness: Brightness.light,
+        surface: isSepia ? const Color(0xFFFBF0D9) : null,
+      ),
       scaffoldBackgroundColor: isSepia ? const Color(0xFFFBF0D9) : null,
-      cardTheme: isSepia ? const CardThemeData(color: Color(0xFFF3E5AB)) : null,
+      cardTheme: CardThemeData(
+        color: isSepia ? const Color(0xFFF3E5AB) : null,
+        elevation: 2,
+      ),
     );
   }
 
-  /// Karanlık Tema Yapılandırması
   ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
-      colorSchemeSeed: seedColor,
-      brightness: Brightness.dark,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: seedColor,
+        brightness: Brightness.dark,
+      ),
     );
   }
 }
