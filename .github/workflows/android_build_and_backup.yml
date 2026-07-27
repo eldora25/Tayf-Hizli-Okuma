@@ -28,16 +28,10 @@ jobs:
           BACKUP_DIR="backups/build-$BUILD_NO"
           
           mkdir -p "$BACKUP_DIR"
-          
-          if [ -f "pubspec.yaml" ]; then
-            cp pubspec.yaml "$BACKUP_DIR/"
-          fi
-          
-          if [ -d "lib" ]; then
-            cp -r lib/ "$BACKUP_DIR/"
-          fi
+          if [ -f "pubspec.yaml" ]; then cp pubspec.yaml "$BACKUP_DIR/"; fi
+          if [ -d "lib" ]; then cp -r lib/ "$BACKUP_DIR/"; fi
 
-      # 3. Yedek klasörünü ayrıca bağımsız bir artifact olarak paketle
+      # 3. Yedek klasörünü bağımsız bir artifact olarak paketle
       - name: Kaynak Kod Yedeklerini Bağımsız Artifact Olarak Yükle
         uses: actions/upload-artifact@v4
         with:
@@ -45,18 +39,15 @@ jobs:
           path: backups/build-${{ github.run_number }}/
 
       # 4. Çakışma önleyici pull --rebase kullanarak yedekleri güvenle depoya push et
-      - name: Yedekleri Depoya Commit Et ve Güvenle Gönder
+      - name: Yedekleri Depoya Commit Et ve Gönder
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add backups/
-          
           if ! git diff-index --quiet HEAD; then
             git commit -m "Sistem İzole Yedeklemesi: Build #${{ github.run_number }}"
             git pull --rebase origin ${{ github.ref_name }}
             git push origin ${{ github.ref_name }}
-          else
-            echo "Değişiklik yok, push atlandı."
           fi
 
       # 5. Java Ortamını Kur
@@ -72,47 +63,148 @@ jobs:
         with:
           channel: 'stable'
 
-      # 7. Eksik Android Klasörünü ve build.gradle Dosyalarını Otomatik Üret
+      # 7. Eksik Android Klasörünü ve Proje Şablonunu Oluştur
       - name: Eksik Android Proje Dosyalarını Oluştur
         run: |
           if [ ! -d "android" ]; then
-            echo "Android klasörü eksik! Otomatik oluşturuluyor..."
-            flutter create --platforms=android .
-          else
-            echo "Android klasörü mevcut."
+            flutter create --platforms=android --org com.tayf.hizliokuma .
           fi
 
-      # 8. Uygulama koduna dinamik olarak derleme numarasını enjekte et
+      # [KRİTİK OTOMASYON] 8. Android Yerel Dosya Seçici Java Entegrasyonunu Enjekte Et
+      - name: Android Yerel Depolama Erişim Kodlarını Yaz (SAF Entegrasyonu)
+        run: |
+          mkdir -p android/app/src/main/kotlin/com/tayf/hizliokuma/tayf_hizli_okuma
+          cat << 'EOF' > android/app/src/main/kotlin/com/tayf/hizliokuma/tayf_hizli_okuma/MainActivity.kt
+          package com.tayf.hizliokuma.tayf_hizli_okuma
+
+          import android.app.Activity
+          import android.content.Intent
+          import android.net.Uri
+          import android.provider.OpenableColumns
+          import io.flutter.embedding.android.FlutterActivity
+          import io.flutter.embedding.engine.FlutterEngine
+          import io.flutter.plugin.common.MethodChannel
+          import java.io.BufferedReader
+          import java.io.InputStreamReader
+
+          class MainActivity: FlutterActivity() {
+              private politicians const val CHANNEL = "com.tayf.hizliokuma/storage"
+              private const val PICK_FILES_REQUEST_CODE = 4242
+              private var pendingResult: MethodChannel.Result? = null
+
+              override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+                  super.configureFlutterEngine(flutterEngine)
+                  MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+                      if (call.method == "pickMultipleFiles") {
+                          pendingResult = result
+                          val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                              addCategory(Intent.CATEGORY_OPENABLE)
+                              type = "*/*"
+                              putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                              val mimeTypes = arrayOf(
+                                  "text/plain", 
+                                  "application/epub+zip", 
+                                  "application/pdf", 
+                                  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                              )
+                              putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes)
+                          }
+                          startActivityForResult(intent, PICK_FILES_REQUEST_CODE)
+                      } else {
+                          result.notImplemented()
+                      }
+                  }
+              }
+
+              override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+                  super.onActivityResult(requestCode, resultCode, data)
+                  if (requestCode == PICK_FILES_REQUEST_CODE) {
+                      if (resultCode == Activity.RESULT_OK && data != null) {
+                          val fileList = mutableListOf<Map<String, String>>()
+                          
+                          if (data.clipData != null) {
+                              val count = data.clipData!.itemCount
+                              for (i in 0 until count) {
+                                  val uri = data.clipData!.getItemAt(i).uri
+                                  getFileDetails(uri)?.let { fileList.add(it) }
+                              }
+                          } else data.data?.let { uri ->
+                              getFileDetails(uri)?.let { fileList.add(it) }
+                          }
+                          
+                          pendingResult?.success(fileList)
+                      } else {
+                          pendingResult?.success(emptyList<Map<String, String>>())
+                      }
+                      pendingResult = null
+                  }
+              }
+
+              private fun getFileDetails(uri: Uri): Map<String, String>? {
+                  var name = "Bilinmeyen_Kitap.txt"
+                  contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                      val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                      if (cursor.moveToFirst() && nameIndex != -1) {
+                          name = cursor.getString(nameIndex)
+                      }
+                  }
+                  
+                  val ext = name.substringAfterLast('.', "txt").uppercase()
+                  var content = ""
+                  try {
+                      contentResolver.openInputStream(uri)?.use { inputStream ->
+                          BufferedReader(InputStreamReader(inputStream)).use { reader ->
+                              val sb = StringBuilder()
+                              var line: String?
+                              var lineCount = 0
+                              while (reader.readLine().also { line = it } != null && lineCount < 200) {
+                                  sb.append(line).append(" ")
+                                  lineCount++
+                              }
+                              content = sb.toString().trim()
+                          }
+                      }
+                  } catch (e: Exception) {
+                      content = "İçerik okunamadı veya format desteklenmiyor."
+                  }
+
+                  if (content.isEmpty()) {
+                      content = "Bu gerçek $ext dosyası başarıyla cihaz hafızasından aktarılmıştır fakat ham veri analizi simüle edilmiştir."
+                  }
+
+                  return mapOf("name" to name, "extension" to ext, "content" to content)
+              }
+          }
+          EOF
+
+      # 9. Sürüm Yerleştirmesi
       - name: Build Numarasını Kod Yapısına Yaz
         run: |
           BUILD_NO="${{ github.run_number }}"
           sed -i "s/BUILD_NUMBER_PLACEHOLDER/$BUILD_NO/g" lib/home_screen.dart || true
           sed -i "s/BUILD_NUMBER_PLACEHOLDER/$BUILD_NO/g" lib/reader_screen.dart || true
 
-      # 9. Bağımlılıkları Çek
+      # 10. Bağımlılıkları Çek
       - name: Flutter Bağımlılıklarını Getir
         run: flutter pub get
 
-      # 10. Android Debug APK'sını Derle
+      # 11. Android Debug APK'sını Derle
       - name: Android Debug APK Derle
         run: flutter build apk --debug
 
-      # 11. APK Dosyasını Dinamik Olarak Yeniden İsimlendir
+      # 12. APK Dosyasını Dinamik Yeniden İsimlendir
       - name: APK Dosyasını Dinamik Yeniden İsimlendir
         run: |
           BUILD_NO="${{ github.run_number }}"
           ORIGINAL_APK="build/app/outputs/flutter-apk/app-debug.apk"
           NEW_APK="build/app/outputs/flutter-apk/tayf-hizli-okuma-$BUILD_NO-debug.apk"
-          
           if [ -f "$ORIGINAL_APK" ]; then
             mv "$ORIGINAL_APK" "$NEW_APK"
-            echo "APK başarıyla yeniden isimlendirildi: $NEW_APK"
           else
-            echo "HATA: Derlenen APK dosyası bulunamadı!"
             exit 1
           fi
 
-      # 12. Dinamik İsimlendirilen APK'yı İndirilebilir Çıktı Olarak Yükle
+      # 13. APK Çıktısını Yayınla (Upload Artifact)
       - name: APK Çıktısını Yayınla (Upload Artifact)
         uses: actions/upload-artifact@v4
         with:
