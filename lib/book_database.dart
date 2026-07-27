@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart'; // EKLENDİ: debugPrint hatasını çözer
+import 'package:flutter/foundation.dart';
 import 'package:archive/archive.dart';
 
 class BookModel {
@@ -58,18 +58,17 @@ class BookDatabase {
     _assetsLoaded = true;
   }
 
-  /// DÜZELTME: Metot adı file_picker_screen.dart ile uyumlu olması için addMultipleBooks yapıldı 
-  /// ve dinamik List tipini destekleyecek şekilde güncellendi.
-  void addMultipleBooks(List<dynamic> pickedFiles) {
+  /// UI katmanının asenkron süreci bekleyebilmesi için metot Future<void> yapısına geçirildi
+  Future<void> addMultipleBooks(List<dynamic> pickedFiles) async {
     for (var item in pickedFiles) {
-      if (item is! Map) continue; // Güvenlik için map tipinde değilse atla
+      if (item is! Map) continue;
       
       final file = item.cast<String, dynamic>();
       final title = file['title'] as String;
       final format = file['format'] as String;
       final bytes = file['bytes'] as Uint8List;
 
-      // Kitap zaten eklendiyse tekrar ekleme
+      // Kitap zaten eklendiyse tekrar ekleme adımlarına geçme
       if (_myBooks.any((b) => b.title == title)) continue;
 
       String content = '';
@@ -78,7 +77,7 @@ class BookDatabase {
       } else if (format == 'TXT') {
         content = utf8.decode(bytes, allowMalformed: true);
       } else {
-        content = "Bu format (PDF/DOCX) henüz tam desteklenmemektedir. Lütfen EPUB veya TXT kullanın.";
+        content = "Bu format henüz desteklenmemektedir. Lütfen EPUB veya TXT kullanın.";
       }
 
       _addSingleBook(title, format, content);
@@ -101,7 +100,7 @@ class BookDatabase {
     ));
   }
 
-  /// Sıkıştırılmış EPUB arşivini kırar ve içindeki HTML/XHTML metinleri Türkçe desteğiyle ayıklar
+  /// S Sıkıştırılmış EPUB arşivini kırar ve içindeki HTML/XHTML metinleri Türkçe desteğiyle ayıklar
   String parseEpubBytes(Uint8List bytes) {
     try {
       final archive = ZipDecoder().decodeBytes(bytes);
