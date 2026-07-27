@@ -37,7 +37,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   void _setupContent() {
     if (widget.activeBook != null) {
-      // İçeriği sayfalara bölme simülasyonu
       _pageSegments = widget.rawText.split('.');
       if (_currentPage >= _pageSegments.length) _currentPage = 0;
       _engine = SpeedReaderEngine(text: _pageSegments[_currentPage]);
@@ -57,7 +56,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     int intervalMs = ((60 / _wpm) * 1000).round();
 
     if (_readingMode == 4) {
-      // Mod 4: Sayfadaki kelime sayısına bağlı dinamik süre hesaplama
       int wordCount = _engine.words.length;
       int pageDurationMs = ((wordCount / _wpm) * 60 * 1000).round();
       _timer = Timer(Duration(milliseconds: pageDurationMs), () {
@@ -65,7 +63,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
         if (_isPlaying) _startTimer();
       });
     } else {
-      // Mod 1, 2, 3: Kelime/Satır bazlı akış zamanlayıcısı
       _timer = Timer.periodic(Duration(milliseconds: intervalMs), (timer) {
         if (_currentWordIndex < _engine.words.length - 1) {
           setState(() => _currentWordIndex++);
@@ -134,7 +131,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   Widget _buildReaderBody() {
     if (_readingMode == 1) {
-      // MOD 1: Klasik RSVP Tek Kelime Odaklama
       return Center(
         child: Column(
           children: [
@@ -148,7 +144,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
         ),
       );
     } else if (_readingMode == 2) {
-      // MOD 2: Tüm Sayfada Kelime Kelime Highlight ve ORP Akışı
       return Wrap(
         spacing: 8,
         runSpacing: 8,
@@ -158,7 +153,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
         }),
       );
     } else if (_readingMode == 3) {
-      // MOD 3: Satır Odaklı, Satır Ortası Kelime ORP Kırmızı, Kalanı Highlight Modu
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -173,7 +167,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
         ],
       );
     } else {
-      // MOD 4: Tüm Sayfa Gösterimi, Hıza Göre Sayfa Değişim Modu
       return Text(
         _pageSegments.isEmpty ? widget.rawText : _pageSegments[_currentPage],
         style: TextStyle(
@@ -251,7 +244,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              // Mod Seçim Çubuğu
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -274,9 +266,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ),
               const SizedBox(height: 20),
               
-              // Dinamik Mod Arayüz Kutusu
+              // HATA DÜZELTİLDİ: Container içinde minHeight yerine constraints: BoxConstraints() kullanıldı
               Container(
-                minHeight: 180,
+                constraints: const BoxConstraints(minHeight: 180),
                 width: double.infinity,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(border: Border.all(color: colorScheme.outlineVariant), borderRadius: BorderRadius.circular(12)),
@@ -285,12 +277,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ),
               const SizedBox(height: 30),
 
-              // Kontroller ve Ayar Çarkları
               Text('Hız Ayarı (WPM): $_wpm', style: const TextStyle(fontWeight: FontWeight.bold)),
               Slider(
                 value: _wpm.toDouble(),
                 min: 100, max: 1000,
-                divisions: 90, // 10'ar 10'ar artış ayarı
+                divisions: 90,
                 label: _wpm.toString(),
                 onChanged: (val) {
                   setState(() => _wpm = val.toInt());
@@ -298,7 +289,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 },
               ),
               
-              // Sayfa İleri / Geri Navigasyon Paneli
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
