@@ -15,19 +15,19 @@ class ThemeManager extends ChangeNotifier {
 
   void setThemeMode(ThemeMode mode) {
     themeMode = mode;
-    notifyListeners(); // Tüm uygulamayı haberdar et
+    notifyListeners(); // Tema değiştiğinde tüm ekranları anında uyarır
   }
 
   void setPalette(AppThemePalette palette) {
     currentPalette = palette;
-    notifyListeners(); // Tüm uygulamayı haberdar et
+    notifyListeners();
   }
 
   void updateReaderSettings(double size, String fontFamily, Color textColor) {
     readerFontSize = size;
     readerFontFamily = fontFamily;
     readerTextColor = textColor;
-    notifyListeners(); // Okuma ekranını haberdar et
+    notifyListeners();
   }
 
   String getPaletteName(AppThemePalette palette) {
@@ -39,6 +39,15 @@ class ThemeManager extends ChangeNotifier {
     }
   }
 
+  // ORP (Odak) harfinin normalden çok daha parlak (fosforlu/canlı) görünmesini sağlar
+  Color getVibrantOrpColor() {
+    if (readerTextColor == Colors.red) return const Color(0xFFFF1744); // Neon Kırmızı
+    if (readerTextColor == Colors.amber) return const Color(0xFFFF9100); // Parlak Turuncu
+    if (readerTextColor == Colors.blue) return const Color(0xFF2979FF); // Elektrik Mavisi
+    if (readerTextColor == Colors.green) return const Color(0xFF00E676); // Fosforlu Yeşil
+    return readerTextColor;
+  }
+
   Color getReaderBackgroundColor() {
     if (themeMode == ThemeMode.dark) {
       return const Color(0xFF121212);
@@ -46,7 +55,7 @@ class ThemeManager extends ChangeNotifier {
     switch (currentPalette) {
       case AppThemePalette.amber: return const Color(0xFFFDF6E3);
       case AppThemePalette.mint: return const Color(0xFFE8F5E9);
-      case AppThemePalette.darkVoid: return const Color(0xFF1C1C1E);
+      case AppThemePalette.darkVoid: return const Color(0xFF1A1A24);
       default: return Colors.white;
     }
   }
@@ -84,9 +93,7 @@ class ThemeManager extends ChangeNotifier {
     return ThemeData(
       useMaterial3: true,
       brightness: isDark ? Brightness.dark : Brightness.light,
-      colorScheme: baseMode(
-        primary: primaryColor,
-      ),
+      colorScheme: baseMode(primary: primaryColor),
     );
   }
 }
