@@ -23,30 +23,49 @@ class _HomeScreenState extends State<HomeScreen> {
         "Gözlerimiz okuma yaparken sürekli geriye sıçrama eğilimindedir. RSVP tekniği kelimeleri tek bir noktada göstererek bu sıçramaları engeller. Böylece dikkat dağınıklığı minimuma iner ve algılama hızı maksimuma çıkar.",
   };
 
+  /// Gelişmiş Filtreleme Arayüzü ile URL'den Saf Metin Çekme Motoru
   Future<void> _fetchTextFromUrl(String url) async {
     if (url.isEmpty) return;
     setState(() => _isLoading = true);
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
-        String cleanText = response.body
-            .replaceAll(RegExp(r'<[^>]*>'), ' ')
-            .replaceAll(RegExp(r'\s+'), ' ');
+        String rawBody = response.body;
+
+        // 1. Script ve Style bloklarını içerikleriyle birlikte tamamen sil
+        rawBody = rawBody.replaceAll(RegExp(r'<script[^>]*>[\s\S]*?<\/script>'), ' ');
+        rawBody = rawBody.replaceAll(RegExp(r'<style[^>]*>[\s\S]*?<\/style>'), ' ');
+        
+        // 2. Kalan tüm HTML etiketlerini temizle
+        rawBody = rawBody.replaceAll(RegExp(r'<[^>]*>'), ' ');
+        
+        // 3. Yaygın HTML varlıklarını (entities) ve sembollerini temizle
+        rawBody = rawBody
+            .replaceAll(RegExp(r'&nbsp;'), ' ')
+            .replaceAll(RegExp(r'&amp;'), '&')
+            .replaceAll(RegExp(r'&lt;'), '<')
+            .replaceAll(RegExp(r'&gt;'), '>')
+            .replaceAll(RegExp(r'&quot;'), '"')
+            .replaceAll(RegExp(r'&#39;'), "'");
+
+        // 4. Mükerrer boşlukları, tab ve satır atlamalarını tek boşluğa indirge
+        String cleanText = rawBody.replaceAll(RegExp(r'\s+'), ' ').trim();
+
         setState(() {
           _textController.text = cleanText;
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Bağlantı başarıyla yüklendi!')),
+            const SnackBar(content: Text('Bağlantı kodlardan arındırılarak temiz bir şekilde yüklendi!')),
           );
         }
       } else {
-        throw Exception('Veri çekilemedi.');
+        throw Exception('Veri çekilemedi. Sunucu Kodu: ${response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Hata: Bağlantı okunamadı ($e)')),
+          SnackBar(content: Text('Hata: Bağlantı içeriği temizlenemedi ($e)')),
         );
       }
     } finally {
