@@ -39,7 +39,9 @@ class BookDatabase {
   List<BookModel> getBooks() => _myBooks;
 
   void addBook(String title, String format, String content) {
-    final id = (激myBooks.length + 1).toString();
+    // HATA DÜZELTİLDİ: 激myBooks yerine _myBooks kullanıldı
+    final id = (_myBooks.length + 1).toString();
+    
     // Metin uzunluğuna göre sayfa sayısı simülasyonu
     int pages = (content.length / 80).ceil();
     if (pages < 1) pages = 1;
