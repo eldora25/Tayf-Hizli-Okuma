@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'reader_screen.dart';
 import 'theme_manager.dart';
 import 'book_database.dart';
+import 'file_picker_screen.dart'; // Yeni ekran eklendi
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,30 +19,10 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = false;
   final String _buildNumber = "BUILD_NUMBER_PLACEHOLDER";
 
-  // DERLEME HATASINA SEBEP OLAN EKSİK TANIMLAMA YERİNE KOYULDU
   final Map<String, String> _presetTexts = {
     "Hızlı Okuma Kas Egzersizi": "Hızlı okuma, göz kaslarını yatay ve dikey açılarda geliştirerek kelime gruplarını tek seferde algılama sanatıdır.",
     "RSVP Odaklanma Egzersizi": "RSVP sistemi kelimeleri tek bir merkez çizgide yakalayarak dikkat dağınıklığını tamamen ortadan kaldırır."
   };
-
-  // Simüle edilmiş dinamik cihaz klasör yapısı (Android Hafıza Bypass Sistemi)
-  final Map<String, List<Map<String, String>>> _deviceStorage = {
-    "/Cihaz Hafızası/Downloads": [
-      {"title": "Suç_ve_Ceza_Bölüm1.epub", "format": "EPUB", "content": "Raskolnikov sıcak bir Temmuz ayında tavan arasındaki odasından çıktı. Hızlı okuma odaklanma çizgisine odaklanın. İkinci sayfa akışı burada devam ediyor. Üçüncü sayfa egzersiz tamamlandı."},
-      {"title": "Modern_Hızlı_Okuma.pdf", "format": "PDF", "content": "Göz okuma hızı beyin algılama limitleriyle doğrudan ilişkilidir. Kelimeleri blok halinde görün. İkinci aşama göz kası antrenmanıdır."},
-      {"title": "Ders_Notlari.docx", "format": "WORD", "content": "Hızlı okuma sınav hazırlık notları. Birinci madde: Seslendirmeyi bırak. İkinci madde: RSVP motorunu aktif kullan."}
-    ],
-    "/Cihaz Hafızası/Documents": [
-      {"title": "Nutuk_Tam_Metin.txt", "format": "TXT", "content": "1919 senesi Mayısının 19 uncu günü Samsuna çıktım. Vaziyet and manzara-i umumiye: Osmanlı Devletinin dahil bulunduğu grup Harb-i Umumide mağlup olmuştu."},
-      {"title": "Egitim_Rehberi.epub", "format": "EPUB", "content": "Eğitim modülü birinci aşama başlangıcı. RSVP okuma tekniğinin faydaları göz koordinasyonunu maksimum düzeye çıkarır."}
-    ],
-    "/Cihaz Hafızası/Books": [
-      {"title": "Zamanın_Kısa_Tarihi.epub", "format": "EPUB", "content": "Evrenin yapısı ve zamanın akışı üzerine bilimsel makaleler topluluğu hızlı okuma entegre metni."}
-    ]
-  };
-
-  String _currentFolder = "/Cihaz Hafızası/Downloads";
-  final List<Map<String, String>> _temporarySelectionPool = [];
 
   Future<void> _fetchTextFromUrl(String url) async {
     if (url.isEmpty) return;
@@ -58,104 +39,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } catch (_) {}
     setState(() => _isLoading = false);
-  }
-
-  /// Kısıtlamasız Çalışan Saf Dart Çoklu Dosya Seçici Arayüzü
-  void _openUniversalFilePicker() {
-    _temporarySelectionPool.clear();
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) {
-          final colorScheme = Theme.of(context).colorScheme;
-          return AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.folder_shared, color: Colors.amber),
-                SizedBox(width: 8),
-                Text('Çoklu Kitap İçe Aktar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Android Cihaz Klasörleri Arasında Gezinin ve Dosyaları Seçin:', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                  const SizedBox(height: 8),
-                  // Klasör Değiştirme Sekmesi
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: _deviceStorage.keys.map((folderPath) {
-                        bool isCurrent = _currentFolder == folderPath;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 4.0),
-                          child: ChoiceChip(
-                            label: Text(folderPath.split('/').last, style: const TextStyle(fontSize: 11)),
-                            selected: isCurrent,
-                            onSelected: (val) {
-                              if (val) setModalState(() => _currentFolder = folderPath);
-                            },
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  const Divider(),
-                  // Seçilen Klasörün İçeriğini Listeleme
-                  Flexible(
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: _deviceStorage[_currentFolder]!.length,
-                      itemBuilder: (context, idx) {
-                        final file = _deviceStorage[_currentFolder]![idx];
-                        bool isSelected = _temporarySelectionPool.contains(file);
-                        return CheckboxListTile(
-                          title: Text(file['title']!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                          subtitle: Text('Format: ${file['format']}', style: const TextStyle(fontSize: 10)),
-                          secondary: Icon(Icons.description, color: colorScheme.primary),
-                          value: isSelected,
-                          dense: true,
-                          onChanged: (bool? checked) {
-                            setModalState(() {
-                              if (checked == true) {
-                                _temporarySelectionPool.add(file);
-                              } else {
-                                _temporarySelectionPool.remove(file);
-                              }
-                            });
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                  const Divider(),
-                  Text('Seçilen Toplam Dosya: ${_temporarySelectionPool.length}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: colorScheme.primary, foregroundColor: colorScheme.onPrimary),
-                onPressed: _temporarySelectionPool.isEmpty ? null : () {
-                  setState(() {
-                    BookDatabase.instance.addMultipleBooks(List.from(_temporarySelectionPool));
-                  });
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${_temporarySelectionPool.length} adet dosya başarıyla Kitaplığıma aktarıldı!')),
-                  );
-                },
-                child: const Text('Seçilenleri İçeri Aktar'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
   }
 
   void _startBookModeWizard() {
@@ -189,25 +72,27 @@ class _HomeScreenState extends State<HomeScreen> {
               SizedBox(
                 height: 150,
                 width: double.maxFinite,
-                child: ListView.builder(
-                  itemCount: BookDatabase.instance.getBooks().length,
-                  itemBuilder: (context, idx) {
-                    final book = BookDatabase.instance.getBooks()[idx];
-                    return Card(
-                      child: ListTile(
-                        dense: true,
-                        title: Text(book.title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        subtitle: Text('Format: ${book.format} | Sayfa: ${book.totalPages} | Kalınan: ${book.lastPage + 1}'),
-                        trailing: const Icon(Icons.play_circle_outline, color: Colors.green),
-                        onTap: () {
-                          Navigator.pop(context);
-                          book.savedMode = chosenMode;
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => ReaderScreen(rawText: book.content, activeBook: book)));
+                child: BookDatabase.instance.getBooks().isEmpty
+                    ? const Center(child: Text('Kitaplığınız boş. Lütfen önce dosya yükleyin.', style: TextStyle(fontSize: 12, color: Colors.grey)))
+                    : ListView.builder(
+                        itemCount: BookDatabase.instance.getBooks().length,
+                        itemBuilder: (context, idx) {
+                          final book = BookDatabase.instance.getBooks()[idx];
+                          return Card(
+                            child: ListTile(
+                              dense: true,
+                              title: Text(book.title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              subtitle: Text('Format: ${book.format} | Sayfa: ${book.totalPages} | Kalınan: ${book.lastPage + 1}'),
+                              trailing: const Icon(Icons.play_circle_outline, color: Colors.green),
+                              onTap: () {
+                                Navigator.pop(context);
+                                book.savedMode = chosenMode;
+                                Navigator.push(context, MaterialPageRoute(builder: (context) => ReaderScreen(rawText: book.content, activeBook: book)));
+                              },
+                            ),
+                          );
                         },
                       ),
-                    );
-                  },
-                ),
               ),
             ],
           ),
@@ -222,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final displayBuild = _buildNumber.contains("PLACEHOLDER") ? "31" : _buildNumber;
+    final displayBuild = _buildNumber.contains("PLACEHOLDER") ? "32" : _buildNumber;
     final themeMgr = ThemeManager.instance;
 
     return Scaffold(
@@ -267,13 +152,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const Divider(),
                         
+                        // DIALOG HATASINI ÇÖZEN YENİ TAM SAYFA ROUTE YÖNLENDİRMESİ
                         ListTile(
                           leading: const Icon(Icons.folder_open, color: Colors.blue),
                           title: const Text('Çoklu Kitap İçe Aktar'),
-                          subtitle: const Text('Gelişmiş Dizin Tarayıcı Modülü'),
-                          onTap: () {
-                            Navigator.pop(context);
-                            _openUniversalFilePicker();
+                          subtitle: const Text('Tam Sayfa Dizin Tarayıcı Modülü'),
+                          onTap: () async {
+                            Navigator.pop(context); // Drawer'ı güvenle kapat
+                            final bool? success = await Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const FilePickerScreen()),
+                            );
+                            if (success == true) {
+                              setState(() {}); // Ana ekran kitap listesini güncelle
+                            }
                           },
                         ),
                         const Divider(),
@@ -281,21 +173,26 @@ class _HomeScreenState extends State<HomeScreen> {
                         Text('Kitaplarım & Belgelerim', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.primary)),
                         const SizedBox(height: 6),
                         Container(
-                          constraints: const BoxConstraints(maxHeight: 120),
+                          constraints: const BoxConstraints(maxHeight: 140),
                           decoration: BoxDecoration(border: Border.all(color: colorScheme.outlineVariant), borderRadius: BorderRadius.circular(8)),
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: BookDatabase.instance.getBooks().length,
-                            itemBuilder: (context, bIdx) {
-                              final b = BookDatabase.instance.getBooks()[bIdx];
-                              return ListTile(
-                                dense: true,
-                                leading: const Icon(Icons.menu_book, size: 16, color: Colors.grey),
-                                title: Text(b.title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                subtitle: Text('Sayfa: ${b.totalPages} | Kaldığı: ${b.lastPage + 1}', style: const TextStyle(fontSize: 9)),
-                              );
-                            },
-                          ),
+                          child: BookDatabase.instance.getBooks().isEmpty
+                              ? const Center(child: Padding(
+                                  padding: EdgeInsets.all(8.0),
+                                  child: Text('Kitaplık boş, yukarıdan aktarın.', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                ))
+                              : ListView.builder(
+                                  shrinkWrap: true,
+                                  itemCount: BookDatabase.instance.getBooks().length,
+                                  itemBuilder: (context, bIdx) {
+                                    final b = BookDatabase.instance.getBooks()[bIdx];
+                                    return ListTile(
+                                      dense: true,
+                                      leading: const Icon(Icons.menu_book, size: 16, color: Colors.grey),
+                                      title: Text(b.title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      subtitle: Text('Sayfa: ${b.totalPages} | Kaldığı: ${b.lastPage + 1}', style: const TextStyle(fontSize: 9)),
+                                    );
+                                  },
+                                ),
                         ),
                         const Divider(),
 
