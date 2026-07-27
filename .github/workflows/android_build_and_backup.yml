@@ -15,9 +15,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Depodaki kodları iş akışına çek
+      # 1. Depodaki kodları tam geçmişle iş akışına çek (fetch-depth: 0 rebase çakışmalarını önler)
       - name: Kaynak Kodları Çek (Checkout)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # 2. Kaynak dosyalarını yedekleme klasörüne kopyala ve dinamik isimlendir
       - name: Kaynak Kodları Yedekle ve İsimlendir
@@ -33,8 +35,7 @@ jobs:
             cp pubspec.yaml "$BACKUP_DIR/pubspec.yaml.$BUILD_NO-$COMMIT_NO"
           fi
           
-          # lib klasöründeki tüm dart dosyalarını tarayıp isim formatına göre kopyala
-          # backups klasörünün kendisini taramaması için -not -path parametresi eklendi
+          # lib klasöründeki tüm dart dosyalarını tarayıp kopyala (backups klasörü hariç)
           if [ -d "lib" ]; then
             find lib -type f -not -path "*/$BACKUP_DIR/*" | while read -r file; do
               filename=$(basename -- "$file")
@@ -45,14 +46,21 @@ jobs:
             done
           fi
 
-      # 3. Oluşturulan yedekleri GitHub deposuna geri push et
-      - name: Yedekleri Depoya Commit Et ve Gönder
+      # 3. Çakışma önleyici pull --rebase kullanarak yedekleri güvenle depoya push et
+      - name: Yedekleri Depoya Commit Et ve Güvenle Gönder
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add backups/
-          git diff-index --quiet HEAD || git commit -m "Sistem Yedeklemesi: Build #$BUILD_NO | Commit: $COMMIT_NO"
-          git push
+          
+          # Değişiklik varsa commit et ve çakışmaları rebase ile çözüp push et
+          if ! git diff-index --quiet HEAD; then
+            git commit -m "Sistem Yedeklemesi: Build #${{ github.run_number }} | Commit: ${{ github.run_id }}"
+            git pull --rebase origin ${{ github.ref_name }}
+            git push origin ${{ github.ref_name }}
+          else
+            echo "Değişiklik yok, push atlandı."
+          fi
 
       # 4. Java Ortamını Kur (Android derlemesi için zorunlu)
       - name: Java JDK Kurulumu
@@ -67,7 +75,7 @@ jobs:
         with:
           channel: 'stable'
 
-      # [KRİTİK ADIM] 6. Eksik Android Klasörünü ve build.gradle Dosyalarını Otomatik Üret
+      # 6. Eksik Android Klasörünü ve build.gradle Dosyalarını Otomatik Üret
       - name: Eksik Android Proje Dosyalarını Oluştur
         run: |
           if [ ! -d "android" ]; then
