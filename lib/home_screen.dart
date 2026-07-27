@@ -206,7 +206,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 itemBuilder: (context, index) {
                   String title = _presetTexts.keys.elementAt(index);
                   return ListTile(
-                    title: Text(title, style: TextStyle(fontWeight: FontWeight.w6amp;500)),
+                    title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
                     trailing: Icon(Icons.arrow_forward_ios, size: 16, color: colorScheme.secondary),
                     onTap: () {
                       _textController.text = _presetTexts[title]!;
@@ -285,7 +285,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 24),
 
             // ÇALIŞMAYI BAŞLATMA BUTONU
-            SWidth(
+            SizedBox(
               width: double.infinity,
               height: 54,
               child: ElevatedButton.icon(
@@ -316,18 +316,5 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-  }
-}
-
-// Yardımcı widget (SizedBox kısaltması kütüphane çakışması önleme amaçlı)
-class SWidth extends StatelessWidget {
-  final double width;
-  final double height;
-  final Widget child;
-  const SWidth({super.key, required this.width, required this.height, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(width: width, height: height, child: child);
   }
 }
