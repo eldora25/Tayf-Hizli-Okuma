@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'reader_screen.dart';
 import 'theme_manager.dart';
 import 'book_database.dart';
-import 'file_picker_screen.dart'; // Yeni ekran eklendi
+import 'file_picker_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -107,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final displayBuild = _buildNumber.contains("PLACEHOLDER") ? "32" : _buildNumber;
+    final displayBuild = _buildNumber.contains("PLACEHOLDER") ? "34" : _buildNumber;
     final themeMgr = ThemeManager.instance;
 
     return Scaffold(
@@ -152,19 +152,24 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const Divider(),
                         
-                        // DIALOG HATASINI ÇÖZEN YENİ TAM SAYFA ROUTE YÖNLENDİRMESİ
+                        // GERÇEK ANDROID SEÇİCİYİ AÇAN GÜVENLİ VE BAĞIMSIZ YÖNLENDİRME
                         ListTile(
                           leading: const Icon(Icons.folder_open, color: Colors.blue),
                           title: const Text('Çoklu Kitap İçe Aktar'),
-                          subtitle: const Text('Tam Sayfa Dizin Tarayıcı Modülü'),
+                          subtitle: const Text('Gerçek Depolama Birimi Bağlantısı'),
                           onTap: () async {
-                            Navigator.pop(context); // Drawer'ı güvenle kapat
+                            Navigator.pop(context); 
                             final bool? success = await Navigator.push(
                               context,
                               MaterialPageRoute(builder: (context) => const FilePickerScreen()),
                             );
                             if (success == true) {
-                              setState(() {}); // Ana ekran kitap listesini güncelle
+                              setState(() {}); // Yerel kitap listesini anında yenile
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Seçilen gerçek kitaplar başarıyla veritabanına işlendi!')),
+                                );
+                              }
                             }
                           },
                         ),
