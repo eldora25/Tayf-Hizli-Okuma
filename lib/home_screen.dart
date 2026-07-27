@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'reader_screen.dart';
 import 'theme_manager.dart';
+import 'book_database.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,17 +14,16 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _textController = TextEditingController();
   final TextEditingController _urlController = TextEditingController();
-  final TextEditingController _fileNameController = TextEditingController();
+  final TextEditingController _multiFileTitleController = TextEditingController();
+  final TextEditingController _multiFileContentController = TextEditingController();
+  
+  String _selectedFormat = 'EPUB';
   bool _isLoading = false;
-
-  // GitHub Actions derleme sırasında buradaki metni otomatik günceller
   final String _buildNumber = "BUILD_NUMBER_PLACEHOLDER";
 
   final Map<String, String> _presetTexts = {
-    "Hızlı Okuma Nedir?":
-        "Hızlı okuma, göz kaslarını geliştirerek ve kelimeleri tek tek değil gruplar halinde görerek okuma hızını artırma tekniğidir. İnsan beyni kelimeleri resim gibi algılar. Bu sayede odaklanma artar ve zamandan tasarruf edilir.",
-    "Odaklanma Egzersizi":
-        "Gözlerimiz okuma yaparken sürekli geriye sıçrama eğilimindedir. RSVP tekniği kelimeleri tek bir noktada göstererek bu sıçramaları engeller. Böylece dikkat dağınıklığı minimuma iner ve algılama hızı maksimuma çıkar.",
+    "Hızlı Okuma Nedir?": "Hızlı okuma, göz kaslarını geliştirerek ve kelimeleri tek tek değil gruplar halinde görerek okuma hızını artırma tekniğidir.",
+    "Odaklanma Egzersizi": "Gözlerimiz okuma yaparken sürekli geriye sıçrama eğilimindedir. RSVP tekniği kelimeleri tek bir noktada göstererek bu sıçramaları engeller."
   };
 
   Future<void> _fetchTextFromUrl(String url) async {
@@ -33,158 +33,75 @@ class _HomeScreenState extends State<HomeScreen> {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         String rawBody = response.body;
-
         rawBody = rawBody.replaceAll(RegExp(r'<script[^>]*>[\s\S]*?<\/script>'), ' ');
         rawBody = rawBody.replaceAll(RegExp(r'<style[^>]*>[\s\S]*?<\/style>'), ' ');
         rawBody = rawBody.replaceAll(RegExp(r'<[^>]*>'), ' ');
-        
-        rawBody = rawBody
-            .replaceAll(RegExp(r'&nbsp;'), ' ')
-            .replaceAll(RegExp(r'&amp;'), '&')
-            .replaceAll(RegExp(r'&lt;'), '<')
-            .replaceAll(RegExp(r'&gt;'), '>')
-            .replaceAll(RegExp(r'&quot;'), '"')
-            .replaceAll(RegExp(r'&#39;'), "'");
-
+        rawBody = rawBody.replaceAll(RegExp(r'&nbsp;'), ' ').replaceAll(RegExp(r'&amp;'), '&');
         String cleanText = rawBody.replaceAll(RegExp(r'\s+'), ' ').trim();
+        setState(() => _textController.text = cleanText);
+      }
+    } catch (_) {}
+    setState(() => _isLoading = false);
+  }
 
-        setState(() {
-          _textController.text = cleanText;
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Bağlantı kodlardan arındırılarak temiz bir şekilde yüklendi!')),
-          );
-        }
-      } else {
-        throw Exception('Veri çekilemedi.');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Hata: Bağlantı içeriği temizlenemedi ($e)')),
-        );
-      }
-    } finally {
-      setState(() => _isLoading = false);
+  void _addNewBookToLibrary() {
+    if (_multiFileTitleController.text.isEmpty || _multiFileContentController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lütfen kitap adı ve içeriğini doldurun!')));
+      return;
     }
-  }
-
-  void _simulateFileUpload() {
     setState(() {
-      _fileNameController.text = "kitap_verisi.txt (Yüklendi)";
-      _textController.text = "Dosyadan başarıyla okunan hızlı okuma metni metodu: Görsel algılama yeteneğinizi geliştirmek için kelimeleri bloklar halinde okumayı alışkanlık haline getirmelisiniz. Bu yüklenen dosya içeriğidir.";
+      BookDatabase.instance.addBook(
+        "${_multiFileTitleController.text}.${_selectedFormat.toLowerCase()}",
+        _selectedFormat,
+        _multiFileContentController.text,
+      );
+      _multiFileTitleController.clear();
+      _multiFileContentController.clear();
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Dosya simülasyonu başarıyla yüklendi!')),
-    );
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kitap başarıyla Kitaplığıma eklendi!')));
   }
 
-  void _showThemeSettingsDialog() {
-    showModalBottomSheet(
+  void _showAddBookDialog() {
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          title: const Text('Yeni E-Kitap/Belge Yükle'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _multiFileTitleController,
+                  decoration: const InputDecoration(labelText: 'Kitap / Belge Adı'),
+                ),
+                const SizedBox(height: 8),
+                DropdownButton<String>(
+                  value: _selectedFormat,
+                  isExpanded: true,
+                  items: ['EPUB', 'WORD', 'PDF', 'TXT'].map((String val) {
+                    return DropdownMenuItem<String>(value: val, child: Text(val));
+                  }).toList(),
+                  onChanged: (newVal) {
+                    if (newVal != null) setModalState(() => _selectedFormat = newVal);
+                  },
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _multiFileContentController,
+                  maxLines: 5,
+                  decoration: const InputDecoration(hintText: 'Kitap metnini veya bölüm içeriğini buraya ekleyin...'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
+            ElevatedButton(onPressed: _addNewBookToLibrary, child: const Text('Kitaplığıma Ekle')),
+          ],
+        ),
       ),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final themeMgr = ThemeManager.instance;
-            return Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[400],
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text('Görünüm Modu', style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  SegmentedButton<ThemeMode>(
-                    segments: const [
-                      ButtonSegment(
-                        value: ThemeMode.light,
-                        icon: Icon(Icons.light_mode),
-                        label: Text('Açık'),
-                      ),
-                      ButtonSegment(
-                        value: ThemeMode.dark,
-                        icon: Icon(Icons.dark_mode),
-                        label: Text('Karanlık'),
-                      ),
-                      ButtonSegment(
-                        value: ThemeMode.system,
-                        icon: Icon(Icons.settings_suggest),
-                        label: Text('Sistem'),
-                      ),
-                    ],
-                    selected: {themeMgr.themeMode},
-                    onSelectionChanged: (Set<ThemeMode> newSelection) {
-                      setModalState(() {
-                        themeMgr.setThemeMode(newSelection.first);
-                      });
-                      setState(() {});
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  Text('Renk Paleti', style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: AppThemePalette.values.map((palette) {
-                      final isSelected = themeMgr.currentPalette == palette;
-                      Color color;
-                      switch (palette) {
-                        case AppThemePalette.deepPurple:
-                          color = Colors.deepPurple;
-                          break;
-                        case AppThemePalette.oceanBlue:
-                          color = const Color(0xFF0277BD);
-                          break;
-                        case AppThemePalette.emeraldGreen:
-                          color = const Color(0xFF2E7D32);
-                          break;
-                        case AppThemePalette.sunsetOrange:
-                          color = const Color(0xFFE65100);
-                          break;
-                        case AppThemePalette.warmSepia:
-                          color = const Color(0xFF6D4C41);
-                          break;
-                      }
-
-                      return FilterChip(
-                        avatar: CircleAvatar(backgroundColor: color, radius: 10),
-                        label: Text(themeMgr.getPaletteName(palette)),
-                        selected: isSelected,
-                        onSelected: (bool selected) {
-                          if (selected) {
-                            setModalState(() {
-                              themeMgr.setPalette(palette);
-                            });
-                            setState(() {});
-                          }
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-              ),
-            );
-          },
-        );
-      },
     );
   }
 
@@ -196,34 +113,62 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Text('Tayf Hızlı Okuma', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text(
-              'V1.$displayBuild | By: Tayfun YAMAK ©',
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w400, letterSpacing: 0.5),
-            ),
+            const Text('Tayf Eğitim Modu', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('V1.$displayBuild | By: Tayfun YAMAK ©', style: const TextStyle(fontSize: 10)),
           ],
         ),
         centerTitle: true,
         backgroundColor: colorScheme.primaryContainer,
         foregroundColor: colorScheme.onPrimaryContainer,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.palette_outlined),
-            tooltip: 'Tema ve Renk Paleti',
-            onPressed: _showThemeSettingsDialog,
+      ),
+      // YAN DRAWER MENÜ (KİTAPLARIM BÖLÜMÜ)
+      drawer: Drawer(
+        child: SafeArea(
+          child: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                color: colorScheme.primaryContainer,
+                child: Text('📚 Kitaplarım & Belgelerim', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.onPrimaryContainer)),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: BookDatabase.instance.getBooks().length,
+                  itemBuilder: (context, index) {
+                    final book = BookDatabase.instance.getBooks()[index];
+                    return ListTile(
+                      leading: Icon(Icons.menu_book, color: colorScheme.primary),
+                      title: Text(book.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text('Format: ${book.format} | Sayfa: ${book.totalPages} | Kalınan: ${book.lastPage + 1}'),
+                      trailing: const Icon(Icons.play_circle_fill, color: Colors.green),
+                      onTap: () {
+                        Navigator.pop(context); // Drawer'ı kapat
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => ReaderScreen(rawText: book.content, activeBook: book)));
+                      },
+                    );
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Çoklu Dosya/Kitap Ekle'),
+                  onPressed: _showAddBookDialog,
+                ),
+              )
+            ],
           ),
-        ],
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('1. Hazır Eğitim Metinleri', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
-            const SizedBox(height: 8),
+            Text('1. Hazır Hızlı Okuma Egzersizleri', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
             Card(
               child: ListView.builder(
                 shrinkWrap: true,
@@ -232,104 +177,37 @@ class _HomeScreenState extends State<HomeScreen> {
                 itemBuilder: (context, index) {
                   String title = _presetTexts.keys.elementAt(index);
                   return ListTile(
-                    title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-                    trailing: Icon(Icons.arrow_forward_ios, size: 16, color: colorScheme.secondary),
-                    onTap: () {
-                      _textController.text = _presetTexts[title]!;
-                    },
+                    title: Text(title),
+                    trailing: const Icon(Icons.bolt, color: Colors.amber),
+                    onTap: () => _textController.text = _presetTexts[title]!,
                   );
                 },
               ),
             ),
-            const SizedBox(height: 20),
-            Text('2. İnternet Bağlantısından Metin Çek', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
+            Text('2. URL/Bağlantı Adresinden Eğitim Metni', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
             Row(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _urlController,
-                    decoration: InputDecoration(
-                      hintText: 'https://example.com/makale',
-                      border: const OutlineInputBorder(),
-                      focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colorScheme.primary, width: 2)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _isLoading
-                    ? const CircularProgressIndicator()
-                    : ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: colorScheme.secondaryContainer, foregroundColor: colorScheme.onSecondaryContainer),
-                        onPressed: () => _fetchTextFromUrl(_urlController.text),
-                        child: const Text('Getir'),
-                      ),
+                Expanded(child: TextField(controller: _urlController, decoration: const InputDecoration(hintText: 'https://...'))),
+                IconButton(icon: const Icon(Icons.download), onPressed: () => _fetchTextFromUrl(_urlController.text)),
               ],
             ),
+            const SizedBox(height: 16),
+            Text('3. Manuel Eğitim Alanı (Kopyala/Yapıştır)', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+            TextField(controller: _textController, maxLines: 5, decoration: const InputDecoration(border: OutlineInputBorder())),
             const SizedBox(height: 20),
-            Text('3. Cihazdan Dosya (.txt) Seç / Yükle', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _fileNameController,
-                    readOnly: true,
-                    decoration: const InputDecoration(
-                      hintText: 'Dosya seçilmedi',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: colorScheme.tertiaryContainer, foregroundColor: colorScheme.onTertiaryContainer),
-                  icon: const Icon(Icons.file_upload),
-                  label: const Text('Dosya Seç'),
-                  onPressed: _simulateFileUpload,
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Text('4. Manuel Metin Girişi veya Kopyalama Alanı', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _textController,
-              maxLines: 7,
-              decoration: InputDecoration(
-                hintText: 'Kopyaladığınız metni buraya yapıştırın veya yukarıdaki kaynakları kullanın...',
-                border: const OutlineInputBorder(),
-                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colorScheme.primary, width: 2)),
-              ),
-            ),
-            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
-              height: 54,
+              height: 50,
               child: ElevatedButton.icon(
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('Okuma Egzersizini Başlat', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: colorScheme.onPrimary,
-                  elevation: 4,
-                ),
+                icon: const Icon(Icons.model_training),
+                label: const Text('Eğitim RSVP Başlat'),
                 onPressed: () {
-                  if (_textController.text.trim().isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Lütfen önce bir metin ekleyin veya dosya yükleyin!')),
-                    );
-                    return;
-                  }
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ReaderScreen(rawText: _textController.text),
-                    ),
-                  );
+                  if (_textController.text.isEmpty) return;
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => ReaderScreen(rawText: _textController.text)));
                 },
               ),
-            ),
+            )
           ],
         ),
       ),
