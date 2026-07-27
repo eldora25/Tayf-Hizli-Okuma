@@ -13,23 +13,6 @@ class ReaderScreen extends StatefulWidget {
   State<ReaderScreen> createState() => _ReaderScreenState();
 }
 
-class _HomeScreenState extends State<ReaderScreen> {
-  @override
-  void initState() {
-    super.initState();
-    _loadInitialData();
-  }
-
-  Future<void> _loadInitialData() async {
-    await BookDatabase.instance.loadDefaultAssets();
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-}
-
 class _ReaderScreenState extends State<ReaderScreen> {
   List<String> _words = [];
   int _currentWordIndex = 0;
@@ -202,6 +185,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
         appBar: AppBar(
           title: Text(widget.activeBook?.title ?? 'Hızlı Okuma', style: const TextStyle(fontSize: 14)),
           elevation: 0,
+          backgroundColor: bg,
+          foregroundColor: textCol,
           actions: [
             DropdownButton<int>(
               value: _readingMode,
@@ -265,9 +250,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       children: List.generate(pageWords.length, (index) {
                         int globalIdx = pageStart + index;
                         bool isCurrentWord = globalIdx == _currentWordIndex;
-                        
-                        // Satır odaklama modu (Mod 3) için basitleştirilmiş satır başı tespiti (Her 6 kelimede bir)
-                        bool isLineCenter = (index % 6 == 3) && isCurrentWord;
 
                         if (_readingMode == 2 && isCurrentWord) {
                           // MOD 2: Kelime Kelime Highlight ve ORP Odaklama
@@ -286,7 +268,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                               : Text(_words[globalIdx], style: TextStyle(fontSize: fSize, fontFamily: fFamily, color: textCol, fontWeight: FontWeight.bold)),
                           );
                         } else if (_readingMode == 4) {
-                          // MOD 4: Kesintisiz Sayfa Akış Modu (Tüm sayfa sabit durur, süre dolunca sonraki sayfaya geçer)
+                          // MOD 4: Kesintisiz Sayfa Akış Modu
                           return Text(
                             _words[globalIdx],
                             style: TextStyle(
