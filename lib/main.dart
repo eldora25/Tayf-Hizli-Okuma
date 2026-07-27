@@ -1,4 +1,4 @@
-import 'package:flutter/material';
+import 'package:flutter/material.dart'; // .dart uzantısı eklendi
 import 'book_database.dart';
 import 'file_picker_screen.dart';
 
@@ -33,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void initState() {
-    super.navigateInit();
+    super.initState(); // navigateInit hatası initState olarak düzeltildi
     _loadInitialData();
   }
 
