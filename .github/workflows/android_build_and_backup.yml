@@ -1,0 +1,100 @@
+name: Tayf Hızlı Okuma Android Derleme ve Yedekleme Otomasyonu
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch: # GitHub web arayüzünden manuel tetiklemek için düğme ekler
+
+permissions:
+  contents: write # Yedek dosyalarını repoya push edebilmek için gerekli izin
+
+jobs:
+  build-and-backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Depodaki kodları iş akışına çek
+      - name: Kaynak Kodları Çek (Checkout)
+        uses: actions/checkout@v4
+
+      # 2. Kaynak dosyalarını yedekleme klasörüne kopyala ve dinamik isimlendir
+      - name: Kaynak Kodları Yedekle ve İsimlendir
+        run: |
+          BUILD_NO="${{ github.run_number }}"
+          COMMIT_NO="${{ github.run_id }}"
+          BACKUP_DIR="backups"
+          
+          mkdir -p $BACKUP_DIR
+          
+          # pubspec.yaml dosyasını yedekle
+          if [ -f "pubspec.yaml" ]; then
+            cp pubspec.yaml "$BACKUP_DIR/pubspec.yaml.$BUILD_NO-$COMMIT_NO"
+          fi
+          
+          # lib klasöründeki tüm dart dosyalarını tarayıp isim formatına göre kopyala
+          if [ -d "lib" ]; then
+            find lib -type f | while read -r file; do
+              # Dosya adını ve uzantısını ayıkla
+              filename=$(basename -- "$file")
+              extension="${filename##*.}"
+              filename_no_ext="${filename%.*}"
+              
+              # Hedef yedek adını oluştur: dosyaadi.uzantisi.buildno-commitno
+              cp "$file" "$BACKUP_DIR/$filename_no_ext.$extension.$BUILD_NO-$COMMIT_NO"
+            done
+          fi
+
+      # 3. Oluşturulan yedekleri GitHub deposuna geri push et
+      - name: Yedekleri Depoya Commit Et ve Gönder
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add backups/
+          # Eğer yeni yedek varsa commit et ve push et, yoksa hata verme geç
+          git diff-index --quiet HEAD || git commit -m "Sistem Yedeklemesi: Build #$BUILD_NO | Commit: $COMMIT_NO"
+          git push
+
+      # 4. Java Ortamını Kur (Android derlemesi için zorunlu)
+      - name: Java JDK Kurulumu
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      # 5. Flutter Ortamını Kur
+      - name: Flutter SDK Kurulumu
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      # 6. Bağımlılıkları Çek
+      - name: Flutter Bağımlılıklarını Getir
+        run: flutter pub get
+
+      # 7. Hata Ayıklama (Debug) APK'sını Derle
+      - name: Android Debug APK Derle
+        run: flutter build apk --debug
+
+      # 8. APK Dosyasını Dinamik Olarak Yeniden İsimlendir
+      - name: APK Dosyasını Dinamik Yeniden İsimlendir
+        run: |
+          BUILD_NO="${{ github.run_number }}"
+          ORIGINAL_APK="build/app/outputs/flutter-apk/app-debug.apk"
+          NEW_APK="build/app/outputs/flutter-apk/tayf-hizli-okuma-$BUILD_NO-debug.apk"
+          
+          if [ -f "$ORIGINAL_APK" ]; then
+            mv "$ORIGINAL_APK" "$NEW_APK"
+            echo "APK başarıyla yeniden isimlendirildi: $NEW_APK"
+          else
+            echo "HATA: Derlenen APK dosyası bulunamadı!"
+            exit 1
+          fi
+
+      # 9. Dinamik İsimlendirilen APK'yı İndirilebilir Çıktı (Artifact) Olarak Yükle
+      - name: APK Çıktısını Yayınla (Upload Artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tayf-hizli-okuma-${{ github.run_number }}-debug-apk
+          path: build/app/outputs/flutter-apk/tayf-hizli-okuma-${{ github.run_number }}-debug.apk
