@@ -11,7 +11,7 @@ class SpeedReaderEngine {
       _words = ['Metin', 'bulunamadı!'];
       return;
     }
-    // Metni boşluklardan, yeni satırlardan temizleyerek kelimelere ayırır
+    // Metni boşluklardan ve yeni satırlardan arındırarak kelimelere böler
     _words = text
         .replaceAll(RegExp(r'\s+'), ' ')
         .split(' ')
@@ -21,7 +21,7 @@ class SpeedReaderEngine {
 
   List<String> get words => _words;
 
-  /// Kelimenin uzunluğuna göre odaklanılacak harfin indeksini verir (Spritz kuralları)
+  /// Kelimenin uzunluğuna göre odaklanılacak harfin indeksini verir (Spritz standardı)
   static int getOptimalFocusIndex(String word) {
     int length = word.length;
     if (length <= 1) return 0;
