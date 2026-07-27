@@ -57,41 +57,21 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _pauseTimer();
     setState(() {
       _currentWordIndex = 0;
-                });
+    });
   }
 
-  /// Kelimeyi parçalayıp odak harfini temanın birincil rengine boyar
-  Widget _buildSpritzWord(String word) {
+  /// Kelimenin tamamını kalın ve kırmızı renkte basar
+  Widget _buildRedWord(String word) {
     if (word.isEmpty) return const SizedBox.shrink();
 
-    int focusIndex = SpeedReaderEngine.getOptimalFocusIndex(word);
-    String leftPart = word.substring(0, focusIndex);
-    String focusChar = word.substring(focusIndex, focusIndex + 1);
-    String rightPart = word.substring(focusIndex + 1);
-
-    const textStyle = TextStyle(
-      fontSize: 38,
-      fontWeight: FontWeight.w500,
-      fontFamily: 'monospace',
-    );
-
-    final defaultColor = Theme.of(context).textTheme.bodyLarge?.color;
-    final accentColor = Theme.of(context).colorScheme.primary;
-
-    return RichText(
-      text: TextSpan(
-        style: textStyle.copyWith(color: defaultColor),
-        children: [
-          TextSpan(text: leftPart),
-          TextSpan(
-            text: focusChar,
-            style: TextStyle(
-              color: accentColor,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          TextSpan(text: rightPart),
-        ],
+    return Text(
+      word,
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        fontSize: 40,
+        fontWeight: FontWeight.bold,
+        color: Colors.red,
+        fontFamily: 'monospace',
       ),
     );
   }
@@ -99,23 +79,26 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   Widget build(BuildContext context) {
     String currentWord = _engine.words[_currentWordIndex];
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('RSVP Okuma Motoru'),
+        backgroundColor: colorScheme.primaryContainer,
+        foregroundColor: colorScheme.onPrimaryContainer,
       ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // ÜST KISIM: İlerleme Çubuğu
+          // İLERLEME ÇUBUĞU
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
                 LinearProgressIndicator(
-                  value: _engine.words.isEmpty
-                      ? 0
-                      : (_currentWordIndex + 1) / _engine.words.length,
+                  value: _engine.words.isEmpty ? 0 : (_currentWordIndex + 1) / _engine.words.length,
+                  backgroundColor: colorScheme.surfaceVariant,
+                  valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -126,33 +109,34 @@ class _ReaderScreenState extends State<ReaderScreen> {
             ),
           ),
 
-          // ORTA KISIM: Spritz Çerçevesi ve Kelime Gösterimi
+          // ORTA KISIM: Kılavuz Çizgileri ve Kırmızı Kelime Gösterimi
           Column(
             children: [
               Container(
                 width: 320,
                 height: 2,
-                color: Theme.of(context).colorScheme.outlineVariant,
+                color: colorScheme.outline,
               ),
               const SizedBox(height: 4),
-              Icon(Icons.arrow_drop_down, color: Theme.of(context).colorScheme.primary),
+              Icon(Icons.arrow_drop_down, color: colorScheme.primary, size: 30),
               Container(
                 alignment: Alignment.center,
-                height: 110,
+                height: 120,
                 width: double.infinity,
-                child: _buildSpritzWord(currentWord),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _buildRedWord(currentWord),
               ),
-              Icon(Icons.arrow_drop_up, color: Theme.of(context).colorScheme.primary),
+              Icon(Icons.arrow_drop_up, color: colorScheme.primary, size: 30),
               const SizedBox(height: 4),
               Container(
                 width: 320,
                 height: 2,
-                color: Theme.of(context).colorScheme.outlineVariant,
+                color: colorScheme.outline,
               ),
             ],
           ),
 
-          // ALT KISIM: Kontroller ve Hız Ayarı (WPM Slider)
+          // KONTROL PANELİ
           Padding(
             padding: const EdgeInsets.only(bottom: 40.0, left: 16, right: 16),
             child: Column(
@@ -160,11 +144,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.speed),
+                    Icon(Icons.speed, color: colorScheme.primary),
                     const SizedBox(width: 8),
                     Text(
                       'Hız (WPM): $_wpm',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -173,6 +157,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   min: 100,
                   max: 1000,
                   divisions: 18,
+                  activeColor: colorScheme.primary,
+                  inactiveColor: colorScheme.surfaceVariant,
                   label: _wpm.toString(),
                   onChanged: (value) {
                     setState(() {
@@ -188,16 +174,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     IconButton(
-                      iconSize: 36,
+                      iconSize: 38,
                       icon: const Icon(Icons.refresh),
+                      color: colorScheme.secondary,
                       onPressed: _resetTimer,
                     ),
                     const SizedBox(width: 20),
                     FloatingActionButton(
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
                       onPressed: _isPlaying ? _pauseTimer : _startTimer,
-                      child: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
+                      child: Icon(_isPlaying ? Icons.pause : Icons.play_arrow, size: 30),
                     ),
-                    const SizedBox(width: 56),
+                    const SizedBox(width: 58),
                   ],
                 ),
               ],
