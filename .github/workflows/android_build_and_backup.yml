@@ -21,30 +21,30 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 2. Kaynak dosyalarını yedekleme klasörüne kopyala ve dinamik isimlendir
-      - name: Kaynak Kodları Yedekle ve İsimlendir
+      # 2. Kaynak dosyalarını izole build numaralı klasöre yedekle
+      - name: Kaynak Kodları İzole Klasörde Yedekle
         run: |
           BUILD_NO="${{ github.run_number }}"
-          COMMIT_NO="${{ github.run_id }}"
-          BACKUP_DIR="backups"
+          BACKUP_DIR="backups/build-$BUILD_NO"
           
-          mkdir -p $BACKUP_DIR
+          mkdir -p "$BACKUP_DIR"
           
           if [ -f "pubspec.yaml" ]; then
-            cp pubspec.yaml "$BACKUP_DIR/pubspec.yaml.$BUILD_NO-$COMMIT_NO"
+            cp pubspec.yaml "$BACKUP_DIR/"
           fi
           
           if [ -d "lib" ]; then
-            find lib -type f -not -path "*/$BACKUP_DIR/*" | while read -r file; do
-              filename=$(basename -- "$file")
-              extension="${filename##*.}"
-              filename_no_ext="${filename%.*}"
-              
-              cp "$file" "$BACKUP_DIR/$filename_no_ext.$extension.$BUILD_NO-$COMMIT_NO"
-            done
+            cp -r lib/ "$BACKUP_DIR/"
           fi
 
-      # 3. Çakışma önleyici pull --rebase kullanarak yedekleri güvenle depoya push et
+      # 3. Yedek klasörünü ayrıca bağımsız bir artifact olarak paketle
+      - name: Kaynak Kod Yedeklerini Bağımsız Artifact Olarak Yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: tayf-kaynak-kod-yedek-build-${{ github.run_number }}
+          path: backups/build-${{ github.run_number }}/
+
+      # 4. Çakışma önleyici pull --rebase kullanarak yedekleri güvenle depoya push et
       - name: Yedekleri Depoya Commit Et ve Güvenle Gönder
         run: |
           git config --global user.name "github-actions[bot]"
@@ -52,27 +52,27 @@ jobs:
           git add backups/
           
           if ! git diff-index --quiet HEAD; then
-            git commit -m "Sistem Yedeklemesi: Build #${{ github.run_number }} | Commit: ${{ github.run_id }}"
+            git commit -m "Sistem İzole Yedeklemesi: Build #${{ github.run_number }}"
             git pull --rebase origin ${{ github.ref_name }}
             git push origin ${{ github.ref_name }}
           else
             echo "Değişiklik yok, push atlandı."
           fi
 
-      # 4. Java Ortamını Kur
+      # 5. Java Ortamını Kur
       - name: Java JDK Kurulumu
         uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      # 5. Flutter Ortamını Kur
+      # 6. Flutter Ortamını Kur
       - name: Flutter SDK Kurulumu
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      # 6. Eksik Android Klasörünü ve build.gradle Dosyalarını Otomatik Üret
+      # 7. Eksik Android Klasörünü ve build.gradle Dosyalarını Otomatik Üret
       - name: Eksik Android Proje Dosyalarını Oluştur
         run: |
           if [ ! -d "android" ]; then
@@ -82,22 +82,22 @@ jobs:
             echo "Android klasörü mevcut."
           fi
 
-      # [YENİ ADIM] 7. Uygulama koduna dinamik olarak derleme numarasını enjekte et
+      # 8. Uygulama koduna dinamik olarak derleme numarasını enjekte et
       - name: Build Numarasını Kod Yapısına Yaz
         run: |
           BUILD_NO="${{ github.run_number }}"
           sed -i "s/BUILD_NUMBER_PLACEHOLDER/$BUILD_NO/g" lib/home_screen.dart || true
           sed -i "s/BUILD_NUMBER_PLACEHOLDER/$BUILD_NO/g" lib/reader_screen.dart || true
 
-      # 8. Bağımlılıkları Çek
+      # 9. Bağımlılıkları Çek
       - name: Flutter Bağımlılıklarını Getir
         run: flutter pub get
 
-      # 9. Android Debug APK'sını Derle
+      # 10. Android Debug APK'sını Derle
       - name: Android Debug APK Derle
         run: flutter build apk --debug
 
-      # 10. APK Dosyasını Dinamik Olarak Yeniden İsimlendir
+      # 11. APK Dosyasını Dinamik Olarak Yeniden İsimlendir
       - name: APK Dosyasını Dinamik Yeniden İsimlendir
         run: |
           BUILD_NO="${{ github.run_number }}"
@@ -112,9 +112,9 @@ jobs:
             exit 1
           fi
 
-      # 11. Dinamik İsimlendirilen APK'yı İndirilebilir Çıktı Olarak Yükle
+      # 12. Dinamik İsimlendirilen APK'yı İndirilebilir Çıktı Olarak Yükle
       - name: APK Çıktısını Yayınla (Upload Artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: tayf-hizli-okuma-${{ github.run_number }}--debug-apk
+          name: tayf-hizli-okuma-${{ github.run_number }}-debug-apk
           path: build/app/outputs/flutter-apk/tayf-hizli-okuma-${{ github.run_number }}-debug.apk
