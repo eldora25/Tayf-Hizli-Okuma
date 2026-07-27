@@ -18,6 +18,12 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = false;
   final String _buildNumber = "BUILD_NUMBER_PLACEHOLDER";
 
+  // DERLEME HATASINA SEBEP OLAN EKSİK TANIMLAMA YERİNE KOYULDU
+  final Map<String, String> _presetTexts = {
+    "Hızlı Okuma Kas Egzersizi": "Hızlı okuma, göz kaslarını yatay ve dikey açılarda geliştirerek kelime gruplarını tek seferde algılama sanatıdır.",
+    "RSVP Odaklanma Egzersizi": "RSVP sistemi kelimeleri tek bir merkez çizgide yakalayarak dikkat dağınıklığını tamamen ortadan kaldırır."
+  };
+
   // Simüle edilmiş dinamik cihaz klasör yapısı (Android Hafıza Bypass Sistemi)
   final Map<String, List<Map<String, String>>> _deviceStorage = {
     "/Cihaz Hafızası/Downloads": [
@@ -26,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
       {"title": "Ders_Notlari.docx", "format": "WORD", "content": "Hızlı okuma sınav hazırlık notları. Birinci madde: Seslendirmeyi bırak. İkinci madde: RSVP motorunu aktif kullan."}
     ],
     "/Cihaz Hafızası/Documents": [
-      {"title": "Nutuk_Tam_Metin.txt", "format": "TXT", "content": "1919 senesi Mayısının 19 uncu günü Samsuna çıktım. Vaziyet ve manzara-i umumiye: Osmanlı Devletinin dahil bulunduğu grup Harb-i Umumide mağlup olmuştu."},
+      {"title": "Nutuk_Tam_Metin.txt", "format": "TXT", "content": "1919 senesi Mayısının 19 uncu günü Samsuna çıktım. Vaziyet and manzara-i umumiye: Osmanlı Devletinin dahil bulunduğu grup Harb-i Umumide mağlup olmuştu."},
       {"title": "Egitim_Rehberi.epub", "format": "EPUB", "content": "Eğitim modülü birinci aşama başlangıcı. RSVP okuma tekniğinin faydaları göz koordinasyonunu maksimum düzeye çıkarır."}
     ],
     "/Cihaz Hafızası/Books": [
@@ -216,7 +222,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final displayBuild = _buildNumber.contains("PLACEHOLDER") ? "29" : _buildNumber;
+    final displayBuild = _buildNumber.contains("PLACEHOLDER") ? "31" : _buildNumber;
     final themeMgr = ThemeManager.instance;
 
     return Scaffold(
