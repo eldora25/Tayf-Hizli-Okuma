@@ -107,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final displayBuild = _buildNumber.contains("PLACEHOLDER") ? "34" : _buildNumber;
+    final displayBuild = _buildNumber.contains("PLACEHOLDER") ? "36" : _buildNumber;
     final themeMgr = ThemeManager.instance;
 
     return Scaffold(
@@ -152,22 +152,22 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const Divider(),
                         
-                        // GERÇEK ANDROID SEÇİCİYİ AÇAN GÜVENLİ VE BAĞIMSIZ YÖNLENDİRME
+                        // İZİN ENGELLERİNİ TAMAMEN AŞAN YENİ FULL SCREEN ROUTE KÖPRÜSÜ
                         ListTile(
                           leading: const Icon(Icons.folder_open, color: Colors.blue),
                           title: const Text('Çoklu Kitap İçe Aktar'),
-                          subtitle: const Text('Gerçek Depolama Birimi Bağlantısı'),
+                          subtitle: const Text('Evrensel Dosya Ayrıştırıcı Paneli'),
                           onTap: () async {
-                            Navigator.pop(context); 
+                            Navigator.pop(context); // Drawer'ı kararlı kapat
                             final bool? success = await Navigator.push(
                               context,
                               MaterialPageRoute(builder: (context) => const FilePickerScreen()),
                             );
                             if (success == true) {
-                              setState(() {}); // Yerel kitap listesini anında yenile
+                              setState(() {}); // Kitap listesi görünümünü anında tazele
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Seçilen gerçek kitaplar başarıyla veritabanına işlendi!')),
+                                  const SnackBar(content: Text('Tüm gerçek dosyalar başarıyla yerel veritabanına eklendi!')),
                                 );
                               }
                             }
