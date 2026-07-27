@@ -24,6 +24,20 @@ class _HomeScreenState extends State<HomeScreen> {
     "RSVP Odaklanma Egzersizi": "RSVP sistemi kelimeleri tek bir merkez çizgide yakalayarak dikkat dağınıklığını tamamen ortadan kaldırır."
   };
 
+  @override
+  void initState() {
+    super.initState();
+    // EKLENDİ: Uygulama açıldığında Assets klasöründeki EPUB'ları sessizce yükler ve arayüzü günceller
+    _loadAssets();
+  }
+
+  Future<void> _loadAssets() async {
+    await BookDatabase.instance.loadDefaultAssets();
+    if (mounted) {
+      setState(() {}); // Yükleme sonrası listeyi otomatik olarak tazele
+    }
+  }
+
   Future<void> _fetchTextFromUrl(String url) async {
     if (url.isEmpty) return;
     setState(() => _isLoading = true);
@@ -56,11 +70,11 @@ class _HomeScreenState extends State<HomeScreen> {
               DropdownButton<int>(
                 value: chosenMode,
                 isExpanded: true,
-                items: [
-                  const DropdownMenuItem(value: 1, child: Text('Mod 1: Klasik RSVP Tek Kelime')),
-                  const DropdownMenuItem(value: 2, child: Text('Mod 2: Tüm Sayfa Kelime Highlight')),
-                  const DropdownMenuItem(value: 3, child: Text('Mod 3: Satır Merkez Odaklama')),
-                  const DropdownMenuItem(value: 4, child: Text('Mod 4: Sayfa Yoğunluk Akışı')),
+                items: const [
+                  DropdownMenuItem(value: 1, child: Text('Mod 1: Klasik RSVP Tek Kelime')),
+                  DropdownMenuItem(value: 2, child: Text('Mod 2: Tüm Sayfa Kelime Highlight')),
+                  DropdownMenuItem(value: 3, child: Text('Mod 3: Satır Merkez Odaklama')),
+                  DropdownMenuItem(value: 4, child: Text('Mod 4: Sayfa Yoğunluk Akışı')),
                 ],
                 onChanged: (val) {
                   if (val != null) setWizardState(() => chosenMode = val);
@@ -152,7 +166,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const Divider(),
                         
-                        // İZİN ENGELLERİNİ TAMAMEN AŞAN YENİ FULL SCREEN ROUTE KÖPRÜSÜ
                         ListTile(
                           leading: const Icon(Icons.folder_open, color: Colors.blue),
                           title: const Text('Çoklu Kitap İçe Aktar'),
