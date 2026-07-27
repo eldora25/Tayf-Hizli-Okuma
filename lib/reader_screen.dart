@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'speed_reader_engine.dart';
+import 'book_database.dart';
+import 'theme_manager.dart';
 
 class ReaderScreen extends StatefulWidget {
   final String rawText;
-  const ReaderScreen({super.key, required this.rawText});
+  final BookModel? activeBook;
+  const ReaderScreen({super.key, required this.rawText, this.activeBook});
 
   @override
   State<ReaderScreen> createState() => _ReaderScreenState();
@@ -16,13 +19,31 @@ class _ReaderScreenState extends State<ReaderScreen> {
   int _wpm = 300;
   bool _isPlaying = false;
   Timer? _timer;
+  
+  // 1: RSVP, 2: Tüm Sayfa Kelime Akışı, 3: Satır Merkez Odak, 4: Sayfa Yoğunluk Akışı
+  int _readingMode = 1; 
+  int _currentPage = 0;
+  List<String> _pageSegments = [];
 
   final String _buildNumber = "BUILD_NUMBER_PLACEHOLDER";
 
   @override
   void initState() {
     super.initState();
-    _engine = SpeedReaderEngine(text: widget.rawText);
+    _wpm = widget.activeBook?.savedWpm ?? 300;
+    _currentPage = widget.activeBook?.lastPage ?? 0;
+    _setupContent();
+  }
+
+  void _setupContent() {
+    if (widget.activeBook != null) {
+      // İçeriği sayfalara bölme simülasyonu
+      _pageSegments = widget.rawText.split('.');
+      if (_currentPage >= _pageSegments.length) _currentPage = 0;
+      _engine = SpeedReaderEngine(text: _pageSegments[_currentPage]);
+    } else {
+      _engine = SpeedReaderEngine(text: widget.rawText);
+    }
   }
 
   @override
@@ -35,187 +56,268 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _timer?.cancel();
     int intervalMs = ((60 / _wpm) * 1000).round();
 
-    _timer = Timer.periodic(Duration(milliseconds: intervalMs), (timer) {
-      if (_currentWordIndex < _engine.words.length - 1) {
-        setState(() {
-          _currentWordIndex++;
-        });
-      } else {
-        _pauseTimer();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Egzersiz başarıyla tamamlandı!')),
-        );
-      }
-    });
+    if (_readingMode == 4) {
+      // Mod 4: Sayfadaki kelime sayısına bağlı dinamik süre hesaplama
+      int wordCount = _engine.words.length;
+      int pageDurationMs = ((wordCount / _wpm) * 60 * 1000).round();
+      _timer = Timer(Duration(milliseconds: pageDurationMs), () {
+        _changePage(1);
+        if (_isPlaying) _startTimer();
+      });
+    } else {
+      // Mod 1, 2, 3: Kelime/Satır bazlı akış zamanlayıcısı
+      _timer = Timer.periodic(Duration(milliseconds: intervalMs), (timer) {
+        if (_currentWordIndex < _engine.words.length - 1) {
+          setState(() => _currentWordIndex++);
+        } else {
+          if (widget.activeBook != null && _currentPage < _pageSegments.length - 1) {
+            _changePage(1);
+          } else {
+            _pauseTimer();
+          }
+        }
+      });
+    }
     setState(() => _isPlaying = true);
   }
 
   void _pauseTimer() {
     _timer?.cancel();
     setState(() => _isPlaying = false);
+    _saveCurrentProgress();
   }
 
-  void _resetTimer() {
+  void _saveCurrentProgress() {
+    if (widget.activeBook != null) {
+      BookDatabase.instance.saveProgress(widget.activeBook!.id, _currentPage, _wpm);
+    }
+  }
+
+  void _changePage(int direction) {
+    if (widget.activeBook == null) return;
     _pauseTimer();
     setState(() {
+      _currentPage = (_currentPage + direction).clamp(0, _pageSegments.length - 1);
       _currentWordIndex = 0;
+      _setupContent();
     });
+    _saveCurrentProgress();
   }
 
-  Widget _buildSpritzFocusWord(String word) {
+  Widget _buildSpritzWord(String word, {bool highlightAll = false, Color? customColor}) {
     if (word.isEmpty) return const SizedBox.shrink();
-
     int focusIndex = SpeedReaderEngine.getOptimalFocusIndex(word);
-    
-    if (focusIndex >= word.length) {
-      focusIndex = 0;
-    }
+    if (focusIndex >= word.length) focusIndex = 0;
 
-    String leftPart = word.substring(0, focusIndex);
-    String focusChar = word.substring(focusIndex, focusIndex + 1);
-    String rightPart = word.substring(focusIndex + 1);
+    String left = word.substring(0, focusIndex);
+    String center = word.substring(focusIndex, focusIndex + 1);
+    String right = word.substring(focusIndex + 1);
 
-    const textStyle = TextStyle(
-      fontSize: 40,
+    final style = TextStyle(
+      fontSize: ThemeManager.instance.readerFontSize,
+      fontFamily: ThemeManager.instance.readerFontFamily,
       fontWeight: FontWeight.bold,
-      fontFamily: 'monospace',
+      backgroundColor: highlightAll ? Colors.yellow.withOpacity(0.4) : null,
     );
 
-    final defaultColor = Theme.of(context).textTheme.bodyLarge?.color;
-
     return RichText(
-      textAlign: TextAlign.center,
       text: TextSpan(
-        style: textStyle.copyWith(color: defaultColor),
+        style: style.copyWith(color: customColor ?? Theme.of(context).textTheme.bodyLarge?.color),
         children: [
-          TextSpan(text: leftPart),
-          TextSpan(
-            text: focusChar,
-            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w900),
-          ),
-          TextSpan(text: rightPart),
+          TextSpan(text: left),
+          TextSpan(text: center, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w900)),
+          TextSpan(text: right),
         ],
+      ),
+    );
+  }
+
+  Widget _buildReaderBody() {
+    if (_readingMode == 1) {
+      // MOD 1: Klasik RSVP Tek Kelime Odaklama
+      return Center(
+        child: Column(
+          children: [
+            const Icon(Icons.arrow_drop_down, color: Colors.red, size: 30),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: _buildSpritzWord(_engine.words[_currentWordIndex]),
+            ),
+            const Icon(Icons.arrow_drop_up, color: Colors.red, size: 30),
+          ],
+        ),
+      );
+    } else if (_readingMode == 2) {
+      // MOD 2: Tüm Sayfada Kelime Kelime Highlight ve ORP Akışı
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: List.generate(_engine.words.length, (index) {
+          bool isCurrent = index == _currentWordIndex;
+          return _buildSpritzWord(_engine.words[index], highlightAll: isCurrent);
+        }),
+      );
+    } else if (_readingMode == 3) {
+      // MOD 3: Satır Odaklı, Satır Ortası Kelime ORP Kırmızı, Kalanı Highlight Modu
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Gözünüzü satır merkezine odaklayın:", style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            color: Colors.blue.withOpacity(0.1),
+            child: Center(child: _buildSpritzWord(_engine.words[_currentWordIndex], highlightAll: true)),
+          )
+        ],
+      );
+    } else {
+      // MOD 4: Tüm Sayfa Gösterimi, Hıza Göre Sayfa Değişim Modu
+      return Text(
+        _pageSegments.isEmpty ? widget.rawText : _pageSegments[_currentPage],
+        style: TextStyle(
+          fontSize: ThemeManager.instance.readerFontSize,
+          fontFamily: ThemeManager.instance.readerFontFamily,
+          color: ThemeManager.instance.readerCustomTextColor,
+        ),
+      );
+    }
+  }
+
+  void _showStyleSettings() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setMState) => Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Okuma Paneli Metin Ayarları', style: Theme.of(context).textTheme.titleMedium),
+              Slider(
+                value: ThemeManager.instance.readerFontSize,
+                min: 14, max: 30, divisions: 8,
+                label: "Boyut: ${ThemeManager.instance.readerFontSize.round()}",
+                onChanged: (v) {
+                  setMState(() => ThemeManager.instance.updateReaderSettings(v, ThemeManager.instance.readerFontFamily, ThemeManager.instance.readerCustomTextColor));
+                  setState(() {});
+                },
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: ['monospace', 'serif', 'sans-serif'].map((font) {
+                  return ChoiceChip(
+                    label: Text(font),
+                    selected: ThemeManager.instance.readerFontFamily == font,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setMState(() => ThemeManager.instance.updateReaderSettings(ThemeManager.instance.readerFontSize, font, ThemeManager.instance.readerCustomTextColor));
+                        setState(() {});
+                      }
+                    },
+                  );
+                }).toList(),
+              )
+            ],
+          ),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    String currentWord = _engine.words[_currentWordIndex];
     final colorScheme = Theme.of(context).colorScheme;
     final displayBuild = _buildNumber.contains("PLACEHOLDER") ? "Local" : _buildNumber;
 
     return Scaffold(
       appBar: AppBar(
         title: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Text('RSVP Okuma Motoru', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text(
-              'V1.$displayBuild | By: Tayfun YAMAK ©',
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w400),
-            ),
+            Text(widget.activeBook != null ? widget.activeBook!.title : 'Tayf RSVP Motoru', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            Text('Sayfa: ${_currentPage + 1}/${_pageSegments.isNotEmpty ? _pageSegments.length : 1} | V1.$displayBuild', style: const TextStyle(fontSize: 10)),
           ],
         ),
         backgroundColor: colorScheme.primaryContainer,
         foregroundColor: colorScheme.onPrimaryContainer,
+        actions: [
+          IconButton(icon: const Icon(Icons.font_download), onPressed: _showStyleSettings),
+        ],
       ),
-      // Sanal tuşların butonları ezmesini ve taşmasını yüzde yüz engellemek için kaydırılabilir gövde mimarisi
       body: SafeArea(
         child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // İLERLEME ÇUBUĞU
-                LinearProgressIndicator(
-                  value: _engine.words.isEmpty ? 0 : (_currentWordIndex + 1) / _engine.words.length,
-                  backgroundColor: colorScheme.surfaceContainerHighest,
-                  valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              // Mod Seçim Çubuğu
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [1, 2, 3, 4].map((modeIndex) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                      child: ChoiceChip(
+                        label: Text('Mod $modeIndex'),
+                        selected: _readingMode == modeIndex,
+                        onSelected: (val) {
+                          if (val) {
+                            _pauseTimer();
+                            setState(() => _readingMode = modeIndex);
+                          }
+                        },
+                      ),
+                    );
+                  }).toList(),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Kelime: ${_currentWordIndex + 1} / ${_engine.words.length}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 60),
+              ),
+              const SizedBox(height: 20),
+              
+              // Dinamik Mod Arayüz Kutusu
+              Container(
+                minHeight: 180,
+                width: double.infinity,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(border: Border.all(color: colorScheme.outlineVariant), borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.all(12),
+                child: _buildReaderBody(),
+              ),
+              const SizedBox(height: 30),
 
-                // ORTA KISIM: Odak Çerçevesi
-                Container(
-                  width: 320,
-                  height: 2,
-                  color: colorScheme.outline,
-                ),
-                const SizedBox(height: 4),
-                Icon(Icons.arrow_drop_down, color: colorScheme.primary, size: 30),
-                Container(
-                  alignment: Alignment.center,
-                  height: 120,
-                  width: double.infinity,
-                  child: _buildSpritzFocusWord(currentWord),
-                ),
-                Icon(Icons.arrow_drop_up, color: colorScheme.primary, size: 30),
-                const SizedBox(height: 4),
-                Container(
-                  width: 320,
-                  height: 2,
-                  color: colorScheme.outline,
-                ),
-                const SizedBox(height: 60),
-
-                // KONTROL PANELİ
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.speed, color: colorScheme.primary),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Hız (WPM): $_wpm',
-                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                Slider(
-                  value: _wpm.toDouble(),
-                  min: 100,
-                  max: 1000,
-                  divisions: 18,
-                  activeColor: colorScheme.primary,
-                  inactiveColor: colorScheme.surfaceContainerHighest,
-                  label: _wpm.toString(),
-                  onChanged: (value) {
-                    setState(() {
-                      _wpm = value.toInt();
-                    });
-                    if (_isPlaying) {
-                      _startTimer();
-                    }
-                  },
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      iconSize: 38,
-                      icon: const Icon(Icons.refresh),
-                      color: colorScheme.secondary,
-                      onPressed: _resetTimer,
-                    ),
-                    const SizedBox(width: 20),
-                    FloatingActionButton(
-                      backgroundColor: colorScheme.primary,
-                      foregroundColor: colorScheme.onPrimary,
-                      onPressed: _isPlaying ? _pauseTimer : _startTimer,
-                      child: Icon(_isPlaying ? Icons.pause : Icons.play_arrow, size: 30),
-                    ),
-                    const SizedBox(width: 58),
-                  ],
-                ),
-              ],
-            ),
+              // Kontroller ve Ayar Çarkları
+              Text('Hız Ayarı (WPM): $_wpm', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Slider(
+                value: _wpm.toDouble(),
+                min: 100, max: 1000,
+                divisions: 90, // 10'ar 10'ar artış ayarı
+                label: _wpm.toString(),
+                onChanged: (val) {
+                  setState(() => _wpm = val.toInt());
+                  if (_isPlaying) _startTimer();
+                },
+              ),
+              
+              // Sayfa İleri / Geri Navigasyon Paneli
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(icon: const Icon(Icons.skip_previous), onPressed: widget.activeBook != null ? () => _changePage(-1) : null),
+                  Row(
+                    children: [
+                      IconButton(icon: const Icon(Icons.replay_10), onPressed: () => setState(() => _currentWordIndex = (_currentWordIndex - 10).clamp(0, _engine.words.length - 1))),
+                      FloatingActionButton(
+                        onPressed: _isPlaying ? _pauseTimer : _startTimer,
+                        child: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
+                      ),
+                    ],
+                  ),
+                  IconButton(icon: const Icon(Icons.skip_next), onPressed: widget.activeBook != null ? () => _changePage(1) : null),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Text('By: Tayfun YAMAK ©', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+            ],
           ),
         ),
       ),
