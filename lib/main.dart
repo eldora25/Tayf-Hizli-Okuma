@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
+import 'theme_manager.dart';
 
 void main() {
   runApp(const TayfHizliOkumaApp());
@@ -10,21 +11,18 @@ class TayfHizliOkumaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Tayf Hızlı Okuma',
-      debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.system,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: Colors.deepPurple,
-        brightness: Brightness.light,
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: Colors.deepPurple,
-        brightness: Brightness.dark,
-      ),
-      home: const HomeScreen(),
+    return AnimatedBuilder(
+      animation: ThemeManager.instance,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'Tayf Hızlı Okuma',
+          debugShowCheckedModeBanner: false,
+          themeMode: ThemeManager.instance.themeMode,
+          theme: ThemeManager.instance.lightTheme,
+          darkTheme: ThemeManager.instance.darkTheme,
+          home: const HomeScreen(),
+        );
+      },
     );
   }
 }
