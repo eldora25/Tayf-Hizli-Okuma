@@ -5,13 +5,13 @@ import 'theme_manager.dart';
 
 class AdvancedExerciseScreen extends StatefulWidget {
   final String rawText;
-  final int exerciseType; 
+  final int initialExerciseType; 
   final BookModel? activeBook;
 
   const AdvancedExerciseScreen({
     Key? key,
     required this.rawText,
-    required this.exerciseType,
+    required this.initialExerciseType,
     this.activeBook,
   }) : super(key: key);
 
@@ -23,6 +23,7 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
   List<String> _words = [];
   List<List<String>> _chunks = [];
   
+  late int _currentExerciseType;
   int _currentChunkIndex = 0;
   int _chunkSize = 2; 
   int _speedMs = 300; 
@@ -32,6 +33,9 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
 
   // Sayfalama (Pagination) için değişken
   final int _chunksPerPage = 60;
+  
+  // Otomatik merkez kaydırma (Auto-Scroll) anahtarı
+  final GlobalKey _activeChunkKey = GlobalKey();
 
   bool _isFlashing = false;
   bool _isWaitingForInput = false;
@@ -43,6 +47,7 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
   @override
   void initState() {
     super.initState();
+    _currentExerciseType = widget.initialExerciseType;
     _words = widget.rawText.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     if (_words.isEmpty) _words = ["Eğitim", "metni", "bulunamadı."];
     
@@ -80,12 +85,26 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
     }
   }
 
+  // Odaklı kelime grubunu ekranın merkezine yumuşakça çeker (Ekrandan taşmayı engeller)
+  void _scrollToActiveChunk() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_activeChunkKey.currentContext != null) {
+        Scrollable.ensureVisible(
+          _activeChunkKey.currentContext!,
+          alignment: 0.5,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
   void _togglePlay() {
     if (_isPlaying) {
       _timer?.cancel();
       setState(() {
         _isPlaying = false;
-        if (widget.exerciseType == 4) {
+        if (_currentExerciseType == 4) {
           _isFlashing = false;
           _isWaitingForInput = false;
           _takistoskopFeedback = "Duraklatıldı";
@@ -94,7 +113,7 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
       _saveProgress();
     } else {
       setState(() => _isPlaying = true);
-      if (widget.exerciseType == 4) {
+      if (_currentExerciseType == 4) {
         _runTakistoskopCycle();
       } else {
         _runStandardTimer();
@@ -114,6 +133,7 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
           _isPlaying = false;
         }
       });
+      _scrollToActiveChunk();
       _saveProgress();
     });
   }
@@ -171,18 +191,8 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
     });
   }
 
-  String get _exerciseName {
-    switch (widget.exerciseType) {
-      case 1: return "Blok Okuma";
-      case 2: return "Gölgeleme Çalışması";
-      case 3: return "Gruplama Çalışması";
-      case 4: return "Takistoskop";
-      default: return "Egzersiz";
-    }
-  }
-
   Widget _buildExerciseArea(Color textCol, Color focusCol, double fSize, String fFamily) {
-    if (widget.exerciseType == 1) {
+    if (_currentExerciseType == 1) {
       return Center(
         child: Text(
           _chunks[_currentChunkIndex].join(" "),
@@ -192,8 +202,7 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
       );
     }
 
-    if (widget.exerciseType == 4) {
-      // Grafik Hatasını engelleyen kaydırılabilir (Scrollable) alan
+    if (_currentExerciseType == 4) {
       return SingleChildScrollView(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -232,7 +241,7 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
                     ElevatedButton.icon(
                       onPressed: () => _checkTakistoskopInput(_inputController.text),
                       icon: const Icon(Icons.check_circle),
-                      label: const Text("Onayla"),
+                      label: const Text("Onayla", style: TextStyle(fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: focusCol,
                         foregroundColor: Colors.white,
@@ -248,7 +257,6 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
       );
     }
 
-    // OOM Çökmesini Engelleyen Sayfalama (Pagination) Algoritması
     int currentPage = _currentChunkIndex ~/ _chunksPerPage;
     int startIndex = currentPage * _chunksPerPage;
     int endIndex = startIndex + _chunksPerPage;
@@ -262,7 +270,7 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
       Color wordColor = textCol;
       Color bgColor = Colors.transparent;
 
-      if (widget.exerciseType == 2) {
+      if (_currentExerciseType == 2) {
         if (isCurrent) {
           wordColor = focusCol;
           bgColor = focusCol.withOpacity(0.1);
@@ -270,7 +278,7 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
           wordColor = Colors.transparent; 
           bgColor = textCol.withOpacity(0.3); 
         }
-      } else if (widget.exerciseType == 3) {
+      } else if (_currentExerciseType == 3) {
         if (isCurrent) {
           wordColor = Colors.transparent;
           bgColor = textCol.withOpacity(0.4); 
@@ -279,8 +287,10 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
         }
       }
 
+      // Hangi kelimenin ekranda ortalanacağını belirleyen sihirli anahtar bağlantısı
       wordWidgets.add(
         Container(
+          key: isCurrent ? _activeChunkKey : null,
           margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(4)),
@@ -314,10 +324,38 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
         return Scaffold(
           backgroundColor: bg,
           appBar: AppBar(
-            title: Text(_exerciseName, style: const TextStyle(fontSize: 14)),
+            title: const Text("Gelişmiş Eğitim", style: TextStyle(fontSize: 14)),
             elevation: 0,
             backgroundColor: bg,
             foregroundColor: textCol,
+            actions: [
+              // Hızlı Mod Değiştirme Menüsü
+              DropdownButton<int>(
+                value: _currentExerciseType,
+                dropdownColor: bg,
+                icon: Icon(Icons.tune, color: textCol),
+                underline: const SizedBox(),
+                items: [
+                  DropdownMenuItem(value: 1, child: Text('Mod 1: Blok Okuma', style: TextStyle(color: textCol))),
+                  DropdownMenuItem(value: 2, child: Text('Mod 2: Gölgeleme', style: TextStyle(color: textCol))),
+                  DropdownMenuItem(value: 3, child: Text('Mod 3: Gruplama', style: TextStyle(color: textCol))),
+                  DropdownMenuItem(value: 4, child: Text('Mod 4: Takistoskop', style: TextStyle(color: textCol))),
+                ],
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _currentExerciseType = val;
+                      if (_isPlaying && val != 4) {
+                        _runStandardTimer();
+                      } else if (_isPlaying && val == 4) {
+                        _runTakistoskopCycle();
+                      }
+                    });
+                    ThemeManager.instance.saveAdvancedWizardSettings(val, ThemeManager.instance.savedSourceType, ThemeManager.instance.savedBookId);
+                  }
+                },
+              )
+            ],
           ),
           body: Column(
             children: [
@@ -358,7 +396,7 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
                             onChanged: (val) {
                               setState(() {
                                 _speedMs = val.round();
-                                if (_isPlaying && widget.exerciseType != 4) _runStandardTimer();
+                                if (_isPlaying && _currentExerciseType != 4) _runStandardTimer();
                               });
                             },
                           ),
@@ -379,7 +417,7 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
                               setState(() {
                                 _chunkSize = val.round();
                                 _generateChunks();
-                                if (_isPlaying && widget.exerciseType != 4) _runStandardTimer();
+                                if (_isPlaying && _currentExerciseType != 4) _runStandardTimer();
                               });
                             },
                           ),
