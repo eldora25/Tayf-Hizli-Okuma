@@ -33,15 +33,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadAssets() async {
     await BookDatabase.instance.loadDefaultAssets();
-    
-    // Okuma Teknikleri dosyasını Hazır Metin 2 olarak yükle
     try {
       final String teknikler = await rootBundle.loadString('assets/Okuma_Teknikleri.txt');
       _presetTexts["Hazır Metin 2: Anlayarak Hızlı Okuma Teknikleri"] = teknikler;
     } catch (e) {
       debugPrint("Hazır metin 2 yüklenemedi: $e");
     }
-
     if (mounted) setState(() {}); 
   }
 
@@ -62,7 +59,6 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _isLoading = false);
   }
 
-  // Sıkışıklığı önleyen, geniş ve kaydırılabilir alt menü (BottomSheet)
   void _startBookModeWizard() {
     int chosenMode = ThemeManager.instance.savedReaderMode;
     BookModel? selectedBook;
@@ -87,70 +83,73 @@ class _HomeScreenState extends State<HomeScreen> {
           maxChildSize: 0.9,
           minChildSize: 0.4,
           builder: (_, controller) => StatefulBuilder(
-            builder: (context, setWizardState) => SingleChildScrollView(
-              controller: controller,
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('📖 Kitap Okuma Sihirbazı', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 20),
-                  const Text('1. Okuma Modunu Seçin', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                  DropdownButton<int>(
-                    value: chosenMode,
-                    isExpanded: true,
-                    items: const [
-                      DropdownMenuItem(value: 1, child: Text('Mod 1: Klasik RSVP Odak')),
-                      DropdownMenuItem(value: 2, child: Text('Mod 2: Sayfa İçi Highlight')),
-                      DropdownMenuItem(value: 3, child: Text('Mod 3: Satır Odaklaması')),
-                      DropdownMenuItem(value: 4, child: Text('Mod 4: Sayfa Merkez Odaklaması')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setWizardState(() => chosenMode = val);
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  const Text('2. Kütüphanenizden Kitap Seçin', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  BookDatabase.instance.getBooks().isEmpty
-                      ? const Center(child: Text('Kitaplığınız boş. Lütfen menüden içe aktarın.', style: TextStyle(color: Colors.grey)))
-                      : ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: BookDatabase.instance.getBooks().length,
-                          itemBuilder: (context, idx) {
-                            final book = BookDatabase.instance.getBooks()[idx];
-                            bool isSelected = selectedBook?.id == book.id;
-                            return Card(
-                              elevation: isSelected ? 4 : 1,
-                              color: isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
-                              child: ListTile(
-                                dense: true,
-                                title: Text(book.title, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
-                                subtitle: Text('Sayfa: ${book.totalPages} | Kalınan: ${book.lastPage + 1}'),
-                                trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.green) : null,
-                                onTap: () {
-                                  setWizardState(() => selectedBook = book);
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: selectedBook == null ? null : () {
-                        ThemeManager.instance.saveReaderWizardSettings(chosenMode, selectedBook!.id);
-                        Navigator.pop(context);
-                        selectedBook!.savedMode = chosenMode;
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => ReaderScreen(rawText: selectedBook!.content, activeBook: selectedBook!))).then((_) => setState(() {}));
+            builder: (context, setWizardState) => SafeArea(
+              bottom: true,
+              child: SingleChildScrollView(
+                controller: controller,
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('📖 Kitap Okuma Sihirbazı', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 20),
+                    const Text('1. Okuma Modunu Seçin', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    DropdownButton<int>(
+                      value: chosenMode,
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: 1, child: Text('Mod 1: Klasik RSVP Odak')),
+                        DropdownMenuItem(value: 2, child: Text('Mod 2: Sayfa İçi Highlight')),
+                        DropdownMenuItem(value: 3, child: Text('Mod 3: Satır Odaklaması')),
+                        DropdownMenuItem(value: 4, child: Text('Mod 4: Sayfa Merkez Odaklaması')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setWizardState(() => chosenMode = val);
                       },
-                      child: const Text('Okumaya Başla', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
-                  )
-                ],
+                    const SizedBox(height: 20),
+                    const Text('2. Kütüphanenizden Kitap Seçin', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    BookDatabase.instance.getBooks().isEmpty
+                        ? const Center(child: Text('Kitaplığınız boş. Lütfen menüden içe aktarın.', style: TextStyle(color: Colors.grey)))
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: BookDatabase.instance.getBooks().length,
+                            itemBuilder: (context, idx) {
+                              final book = BookDatabase.instance.getBooks()[idx];
+                              bool isSelected = selectedBook?.id == book.id;
+                              return Card(
+                                elevation: isSelected ? 4 : 1,
+                                color: isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
+                                child: ListTile(
+                                  dense: true,
+                                  title: Text(book.title, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                  subtitle: Text('Sayfa: ${book.totalPages} | Kalınan: ${book.lastPage + 1}'),
+                                  trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.green) : null,
+                                  onTap: () {
+                                    setWizardState(() => selectedBook = book);
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: selectedBook == null ? null : () {
+                          ThemeManager.instance.saveReaderWizardSettings(chosenMode, selectedBook!.id);
+                          Navigator.pop(context);
+                          selectedBook!.savedMode = chosenMode;
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => ReaderScreen(rawText: selectedBook!.content, activeBook: selectedBook!))).then((_) => setState(() {}));
+                        },
+                        child: const Text('Okumaya Başla', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    )
+                  ],
+                ),
               ),
             ),
           ),
@@ -159,7 +158,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Hafızalı ve Ferah Tasarımlı Gelişmiş Egzersiz Sihirbazı
   void _startAdvancedExerciseWizard() {
     int chosenExercise = ThemeManager.instance.savedAdvancedMode;
     int chosenSourceType = ThemeManager.instance.savedSourceType;
@@ -185,93 +183,95 @@ class _HomeScreenState extends State<HomeScreen> {
           maxChildSize: 0.9,
           minChildSize: 0.4,
           builder: (_, controller) => StatefulBuilder(
-            builder: (context, setWizardState) => SingleChildScrollView(
-              controller: controller,
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('🎯 Gelişmiş Egzersiz Kurulumu', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 20),
-                  const Text('1. Egzersiz Türü Seçin', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                  DropdownButton<int>(
-                    value: chosenExercise,
-                    isExpanded: true,
-                    items: const [
-                      DropdownMenuItem(value: 1, child: Text('Mod 1: Blok Okuma (Grupları Göster)')),
-                      DropdownMenuItem(value: 2, child: Text('Mod 2: Gölgeleme (Sadece Odaklıları Gör)')),
-                      DropdownMenuItem(value: 3, child: Text('Mod 3: Gruplama (Odaktakini Gizle)')),
-                      DropdownMenuItem(value: 4, child: Text('Mod 4: Takistoskop (Klavye Çalışması)')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setWizardState(() => chosenExercise = val);
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  const Text('2. Metin Kaynağını Seçin', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                  DropdownButton<int>(
-                    value: chosenSourceType,
-                    isExpanded: true,
-                    items: const [
-                      DropdownMenuItem(value: 1, child: Text('Kaynak: Ekrandaki Serbest Metnim')),
-                      DropdownMenuItem(value: 2, child: Text('Kaynak: Hazır Egzersiz Metinleri')),
-                      DropdownMenuItem(value: 3, child: Text('Kaynak: Kütüphanemdeki Bir Kitap')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setWizardState(() {
-                        chosenSourceType = val;
-                        if (val == 3 && BookDatabase.instance.getBooks().isNotEmpty) {
-                          selectedBook ??= BookDatabase.instance.getBooks().first;
-                        }
-                      });
-                    },
-                  ),
-                  
-                  if (chosenSourceType == 3) ...[
+            builder: (context, setWizardState) => SafeArea(
+              bottom: true,
+              child: SingleChildScrollView(
+                controller: controller,
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('🎯 Gelişmiş Egzersiz Kurulumu', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 20),
-                    const Text('3. Kütüphane Kitabı Seçin', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    BookDatabase.instance.getBooks().isEmpty
-                      ? const Text('Kütüphaneniz boş.', style: TextStyle(color: Colors.red))
-                      : DropdownButton<BookModel>(
-                          value: selectedBook,
-                          isExpanded: true,
-                          items: BookDatabase.instance.getBooks().map((b) => DropdownMenuItem(value: b, child: Text(b.title, maxLines: 2, overflow: TextOverflow.ellipsis))).toList(),
-                          onChanged: (val) {
-                            if (val != null) setWizardState(() => selectedBook = val);
-                          },
-                        )
-                  ],
-                  const SizedBox(height: 30),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        ThemeManager.instance.saveAdvancedWizardSettings(chosenExercise, chosenSourceType, selectedBook?.id ?? "");
-                        Navigator.pop(context);
-                        String exerciseText = "";
-                        
-                        if (chosenSourceType == 1) {
-                          exerciseText = _textController.text.isNotEmpty ? _textController.text : "Önce ana ekrana bir metin yapıştırın.";
-                        } else if (chosenSourceType == 2) {
-                          exerciseText = _presetTexts.values.join(" "); 
-                        } else if (chosenSourceType == 3 && selectedBook != null) {
-                          exerciseText = selectedBook!.content;
-                        }
-
-                        Navigator.push(context, MaterialPageRoute(
-                          builder: (context) => AdvancedExerciseScreen(
-                            rawText: exerciseText,
-                            initialExerciseType: chosenExercise, // Egzersiz türü mutable yapıldı
-                            activeBook: chosenSourceType == 3 ? selectedBook : null,
-                          )
-                        )).then((_) => setState(() {}));
+                    const Text('1. Egzersiz Türü Seçin', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    DropdownButton<int>(
+                      value: chosenExercise,
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: 1, child: Text('Mod 1: Blok Okuma')),
+                        DropdownMenuItem(value: 2, child: Text('Mod 2: Gölgeleme (Aktif Blok)')),
+                        DropdownMenuItem(value: 3, child: Text('Mod 3: Gruplama (Aktif Açık)')),
+                        DropdownMenuItem(value: 4, child: Text('Mod 4: Takistoskop (Klavye)')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setWizardState(() => chosenExercise = val);
                       },
-                      child: const Text('Egzersize Başla', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
-                  )
-                ],
+                    const SizedBox(height: 20),
+                    const Text('2. Metin Kaynağını Seçin', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    DropdownButton<int>(
+                      value: chosenSourceType,
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: 1, child: Text('Kaynak: Ekrandaki Serbest Metnim')),
+                        DropdownMenuItem(value: 2, child: Text('Kaynak: Hazır Egzersiz Metinleri')),
+                        DropdownMenuItem(value: 3, child: Text('Kaynak: Kütüphanemdeki Bir Kitap')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setWizardState(() {
+                          chosenSourceType = val;
+                          if (val == 3 && BookDatabase.instance.getBooks().isNotEmpty) {
+                            selectedBook ??= BookDatabase.instance.getBooks().first;
+                          }
+                        });
+                      },
+                    ),
+                    if (chosenSourceType == 3) ...[
+                      const SizedBox(height: 20),
+                      const Text('3. Kütüphane Kitabı Seçin', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 10),
+                      BookDatabase.instance.getBooks().isEmpty
+                        ? const Text('Kütüphaneniz boş.', style: TextStyle(color: Colors.red))
+                        : DropdownButton<BookModel>(
+                            value: selectedBook,
+                            isExpanded: true,
+                            items: BookDatabase.instance.getBooks().map((b) => DropdownMenuItem(value: b, child: Text(b.title, maxLines: 2, overflow: TextOverflow.ellipsis))).toList(),
+                            onChanged: (val) {
+                              if (val != null) setWizardState(() => selectedBook = val);
+                            },
+                          )
+                    ],
+                    const SizedBox(height: 30),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          ThemeManager.instance.saveAdvancedWizardSettings(chosenExercise, chosenSourceType, selectedBook?.id ?? "");
+                          Navigator.pop(context);
+                          String exerciseText = "";
+                          
+                          if (chosenSourceType == 1) {
+                            exerciseText = _textController.text.isNotEmpty ? _textController.text : "Önce ana ekrana bir metin yapıştırın.";
+                          } else if (chosenSourceType == 2) {
+                            exerciseText = _presetTexts.values.join(" "); 
+                          } else if (chosenSourceType == 3 && selectedBook != null) {
+                            exerciseText = selectedBook!.content;
+                          }
+
+                          Navigator.push(context, MaterialPageRoute(
+                            builder: (context) => AdvancedExerciseScreen(
+                              rawText: exerciseText,
+                              initialExerciseType: chosenExercise, 
+                              activeBook: chosenSourceType == 3 ? selectedBook : null,
+                            )
+                          )).then((_) => setState(() {}));
+                        },
+                        child: const Text('Egzersize Başla', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    )
+                  ],
+                ),
               ),
             ),
           ),
@@ -283,7 +283,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final displayBuild = _buildNumber.contains("PLACEHOLDER") ? "88" : _buildNumber;
+    final displayBuild = _buildNumber.contains("PLACEHOLDER") ? "96" : _buildNumber;
     final themeMgr = ThemeManager.instance;
 
     return Scaffold(
@@ -300,6 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       drawer: Drawer(
         child: SafeArea(
+          bottom: true,
           child: StatefulBuilder(
             builder: (context, setDrawerState) => Column(
               children: [
@@ -445,74 +446,77 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('1. Göz ve Algı Egzersizleri', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Card(
-              elevation: 3,
-              child: ListTile(
-                leading: const Icon(Icons.psychology, color: Colors.deepPurpleAccent, size: 32),
-                title: const Text('Gelişmiş Egzersizler Modülü', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                subtitle: const Text('Takistoskop, Blok, Gölgeleme ve Gruplama çalışmaları.'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: _startAdvancedExerciseWizard,
+      body: SafeArea(
+        bottom: true,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('1. Göz ve Algı Egzersizleri (Yeni)', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Card(
+                elevation: 3,
+                child: ListTile(
+                  leading: const Icon(Icons.psychology, color: Colors.deepPurpleAccent, size: 32),
+                  title: const Text('Gelişmiş Egzersizler Modülü', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Takistoskop, Blok, Gölgeleme ve Gruplama çalışmaları.'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: _startAdvancedExerciseWizard,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            
-            Text('2. Hazır Egzersizler', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Card(
-              child: ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _presetTexts.length,
-                itemBuilder: (context, index) {
-                  String title = _presetTexts.keys.elementAt(index);
-                  return ListTile(
-                    title: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                    trailing: const Icon(Icons.bolt, color: Colors.amber),
-                    onTap: () {
-                      _textController.text = _presetTexts[title]!;
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Metin serbest eğitim alanına kopyalandı!')));
-                    },
-                  );
-                },
+              const SizedBox(height: 16),
+              
+              Text('2. Hazır Egzersizler', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Card(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _presetTexts.length,
+                  itemBuilder: (context, index) {
+                    String title = _presetTexts.keys.elementAt(index);
+                    return ListTile(
+                      title: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                      trailing: const Icon(Icons.bolt, color: Colors.amber),
+                      onTap: () {
+                        _textController.text = _presetTexts[title]!;
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Metin serbest eğitim alanına kopyalandı!')));
+                      },
+                    );
+                  },
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            
-            Text('3. İnternetten Metin Çek', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
-            Row(
-              children: [
-                Expanded(child: TextField(controller: _urlController, decoration: const InputDecoration(hintText: 'https://makale-linki...'))),
-                IconButton(icon: const Icon(Icons.cloud_download, color: Colors.blue), onPressed: () => _fetchTextFromUrl(_urlController.text)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            
-            Text('4. Serbest Eğitim Alanı', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            TextField(controller: _textController, maxLines: 5, decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Metni buraya yapıştırın...')),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.menu_book, color: Colors.white),
-                label: const Text('Kitap Okuma Moduyla Başlat', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                style: ElevatedButton.styleFrom(backgroundColor: colorScheme.primary),
-                onPressed: () {
-                  if (_textController.text.isEmpty) return;
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => ReaderScreen(rawText: _textController.text)));
-                },
+              const SizedBox(height: 16),
+              
+              Text('3. İnternetten Metin Çek', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+              Row(
+                children: [
+                  Expanded(child: TextField(controller: _urlController, decoration: const InputDecoration(hintText: 'https://makale-linki...'))),
+                  IconButton(icon: const Icon(Icons.cloud_download, color: Colors.blue), onPressed: () => _fetchTextFromUrl(_urlController.text)),
+                ],
               ),
-            )
-          ],
+              const SizedBox(height: 16),
+              
+              Text('4. Serbest Eğitim Alanı', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              TextField(controller: _textController, maxLines: 5, decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Metni buraya yapıştırın...')),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.menu_book, color: Colors.white),
+                  label: const Text('Kitap Okuma Moduyla Başlat', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                  style: ElevatedButton.styleFrom(backgroundColor: colorScheme.primary),
+                  onPressed: () {
+                    if (_textController.text.isEmpty) return;
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => ReaderScreen(rawText: _textController.text)));
+                  },
+                ),
+              )
+            ],
+          ),
         ),
       ),
     );
