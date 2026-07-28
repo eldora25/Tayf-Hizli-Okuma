@@ -5,7 +5,7 @@ import 'theme_manager.dart';
 
 class AdvancedExerciseScreen extends StatefulWidget {
   final String rawText;
-  final int exerciseType; // 1: Blok, 2: Gölgeleme, 3: Gruplama, 4: Takistoskop
+  final int exerciseType; 
   final BookModel? activeBook;
 
   const AdvancedExerciseScreen({
@@ -24,13 +24,15 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
   List<List<String>> _chunks = [];
   
   int _currentChunkIndex = 0;
-  int _chunkSize = 2; // Aynı anda gösterilecek kelime grubu sayısı
+  int _chunkSize = 2; 
   int _speedMs = 300; 
   
   bool _isPlaying = false;
   Timer? _timer;
 
-  // Takistoskop (Mod 4) için Özel Durumlar
+  // Sayfalama (Pagination) için değişken
+  final int _chunksPerPage = 60;
+
   bool _isFlashing = false;
   bool _isWaitingForInput = false;
   final TextEditingController _inputController = TextEditingController();
@@ -46,9 +48,8 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
     
     _generateChunks();
 
-    // Kitaptan geliyorsa kalınan yerden (kelime endeksinden) başlat
     if (widget.activeBook != null) {
-      int savedWordIndex = widget.activeBook!.lastPage * 60; // Ortalama sayfa başı 60 kelime sayıyoruz
+      int savedWordIndex = widget.activeBook!.lastPage * 60; 
       if (savedWordIndex < _words.length) {
         _currentChunkIndex = savedWordIndex ~/ _chunkSize;
       }
@@ -74,7 +75,6 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
 
   void _saveProgress() {
     if (widget.activeBook != null) {
-      // Bulunduğu chunk'ı tahmini sayfa indeksine geri çevirerek kaydet
       int currentPage = (_currentChunkIndex * _chunkSize) ~/ 60;
       BookDatabase.instance.saveProgress(widget.activeBook!.id, currentPage, 300, widget.activeBook!.savedMode);
     }
@@ -102,7 +102,6 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
     }
   }
 
-  // Mod 1, 2 ve 3 için Standart Akış
   void _runStandardTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(Duration(milliseconds: _speedMs), (timer) {
@@ -119,7 +118,6 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
     });
   }
 
-  // Mod 4: Takistoskop Özel Döngüsü (Göster -> Gizle -> Cevap Bekle)
   void _runTakistoskopCycle() {
     if (!mounted || !_isPlaying) return;
     
@@ -130,13 +128,12 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
       _feedbackColor = ThemeManager.instance.getReaderTextColor();
     });
 
-    // Kelimeyi belirlenen milisaniye kadar ekranda tut ve gizle
     _timer = Timer(Duration(milliseconds: _speedMs), () {
       if (!mounted) return;
       setState(() {
         _isFlashing = false;
         _isWaitingForInput = true;
-        _takistoskopFeedback = "Gördüğünüz kelime grubunu yazın ve Enter'a basın";
+        _takistoskopFeedback = "Gördüğünüz kelime grubunu yazın";
       });
       _inputFocus.requestFocus();
     });
@@ -160,7 +157,6 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
       }
     });
 
-    // Sonucu gösterdikten 1 saniye sonra sıradaki kelimeye geç
     _timer = Timer(const Duration(milliseconds: 1000), () {
       if (!mounted || !_isPlaying) return;
       if (_currentChunkIndex < _chunks.length - 1) {
@@ -186,7 +182,6 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
   }
 
   Widget _buildExerciseArea(Color textCol, Color focusCol, double fSize, String fFamily) {
-    // MOD 1: BLOK OKUMA (Sadece aktif kelime grubu ekranın ortasında)
     if (widget.exerciseType == 1) {
       return Center(
         child: Text(
@@ -197,9 +192,9 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
       );
     }
 
-    // MOD 4: TAKİSTOSKOP (Klavye girişli flaşlama)
     if (widget.exerciseType == 4) {
-      return Center(
+      // Grafik Hatasını engelleyen kaydırılabilir (Scrollable) alan
+      return SingleChildScrollView(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -217,31 +212,50 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
               )
             else if (_isWaitingForInput)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40),
-                child: TextField(
-                  controller: _inputController,
-                  focusNode: _inputFocus,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: fSize, color: textCol, fontFamily: fFamily),
-                  decoration: InputDecoration(
-                    hintText: "Buraya yazın...",
-                    filled: true,
-                    fillColor: textCol.withOpacity(0.05),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onSubmitted: _checkTakistoskopInput,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: _inputController,
+                      focusNode: _inputFocus,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: fSize, color: textCol, fontFamily: fFamily),
+                      decoration: InputDecoration(
+                        hintText: "Buraya yazın...",
+                        filled: true,
+                        fillColor: textCol.withOpacity(0.05),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onSubmitted: _checkTakistoskopInput,
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => _checkTakistoskopInput(_inputController.text),
+                      icon: const Icon(Icons.check_circle),
+                      label: const Text("Onayla"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: focusCol,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
               )
             else
-              Container(height: fSize * 2), // Yer tutucu boşluk
+              Container(height: fSize * 3), 
           ],
         ),
       );
     }
 
-    // MOD 2 (Gölgeleme) ve MOD 3 (Gruplama) için Metin Matrisi
+    // OOM Çökmesini Engelleyen Sayfalama (Pagination) Algoritması
+    int currentPage = _currentChunkIndex ~/ _chunksPerPage;
+    int startIndex = currentPage * _chunksPerPage;
+    int endIndex = startIndex + _chunksPerPage;
+    if (endIndex > _chunks.length) endIndex = _chunks.length;
+
     List<Widget> wordWidgets = [];
-    for (int i = 0; i < _chunks.length; i++) {
+    for (int i = startIndex; i < endIndex; i++) {
       bool isCurrent = (i == _currentChunkIndex);
       String chunkText = _chunks[i].join(" ") + " ";
 
@@ -249,19 +263,17 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
       Color bgColor = Colors.transparent;
 
       if (widget.exerciseType == 2) {
-        // GÖLGELEME: Odaktaki kelime normal, diğerleri arka plan rengiyle aynı yapılarak blok (gölge) gibi gösterilir
         if (isCurrent) {
           wordColor = focusCol;
           bgColor = focusCol.withOpacity(0.1);
         } else {
           wordColor = Colors.transparent; 
-          bgColor = textCol.withOpacity(0.3); // Okunmayan kısımlar gri gölge bloğu olur
+          bgColor = textCol.withOpacity(0.3); 
         }
       } else if (widget.exerciseType == 3) {
-        // GRUPLAMA: Odaktaki kelime arka plan rengi yapılarak gizlenir, diğerleri normal okunur
         if (isCurrent) {
           wordColor = Colors.transparent;
-          bgColor = textCol.withOpacity(0.4); // Üzerinde okunduğunu belirten bir gölge kutusu
+          bgColor = textCol.withOpacity(0.4); 
         } else {
           wordColor = textCol;
         }
@@ -328,7 +340,6 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
                 ),
               ),
               
-              // KONTROL PANELİ
               Container(
                 padding: const EdgeInsets.all(16),
                 color: textCol.withOpacity(0.03),
