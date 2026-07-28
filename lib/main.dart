@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'theme_manager.dart';
+import 'book_database.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ThemeManager.instance.init();
+  await BookDatabase.instance.init();
   runApp(const MyApp());
 }
 
@@ -11,7 +15,6 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // AnimatedBuilder, ThemeManager içindeki notifyListeners() tetiklendiğinde uygulamayı yeniden çizer
     return AnimatedBuilder(
       animation: ThemeManager.instance,
       builder: (context, _) {
