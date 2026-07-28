@@ -58,47 +58,50 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setWizardState) => AlertDialog(
-          title: const Text('📖 Kitap Modu Sihirbazı'),
+          title: const Text('📖 Kitap Okuma Sihirbazı'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('1. Okuma Modunu Seçin', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const Text('1. Okuma Modunu Seçin', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
               DropdownButton<int>(
                 value: chosenMode,
                 isExpanded: true,
                 items: const [
-                  DropdownMenuItem(value: 1, child: Text('Mod 1: RSVP Odak')),
-                  DropdownMenuItem(value: 2, child: Text('Mod 2: Sayfa Highlight')),
-                  DropdownMenuItem(value: 3, child: Text('Mod 3: Satır Odak')),
-                  DropdownMenuItem(value: 4, child: Text('Mod 4: Sayfa Merkez Odak')),
+                  DropdownMenuItem(value: 1, child: Text('Mod 1: Klasik RSVP Odak')),
+                  DropdownMenuItem(value: 2, child: Text('Mod 2: Sayfa İçi Highlight')),
+                  DropdownMenuItem(value: 3, child: Text('Mod 3: Satır Odaklaması')),
+                  DropdownMenuItem(value: 4, child: Text('Mod 4: Sayfa Merkez Odaklaması')),
                 ],
                 onChanged: (val) {
                   if (val != null) setWizardState(() => chosenMode = val);
                 },
               ),
               const SizedBox(height: 12),
-              const Text('2. Kütüphaneniz', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const Text('2. Kütüphanenizden Kitap Seçin', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
               SizedBox(
-                height: 200,
+                height: 220,
                 width: double.maxFinite,
                 child: BookDatabase.instance.getBooks().isEmpty
-                    ? const Center(child: Text('Kitaplığınız boş.', style: TextStyle(fontSize: 12, color: Colors.grey)))
+                    ? const Center(child: Text('Kitaplığınız boş. İçe aktarın.', style: TextStyle(fontSize: 12, color: Colors.grey)))
                     : ListView.builder(
                         itemCount: BookDatabase.instance.getBooks().length,
                         itemBuilder: (context, idx) {
                           final book = BookDatabase.instance.getBooks()[idx];
                           return Card(
+                            elevation: 2,
                             child: ListTile(
                               dense: true,
                               title: Text(book.title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
                               subtitle: Text('Sayfa: ${book.totalPages} | Kalınan: ${book.lastPage + 1}'),
-                              trailing: const Icon(Icons.play_circle_outline, color: Colors.green),
+                              trailing: const Icon(Icons.play_circle_fill, color: Colors.blueAccent),
                               onTap: () {
                                 Navigator.pop(context);
                                 book.savedMode = chosenMode;
-                                Navigator.push(context, MaterialPageRoute(builder: (context) => ReaderScreen(rawText: book.content, activeBook: book)));
+                                Navigator.push(context, MaterialPageRoute(builder: (context) => ReaderScreen(rawText: book.content, activeBook: book))).then((_) {
+                                  setState(() {}); // Okuma ekranından dönünce kalınan sayfayı güncelle
+                                });
                               },
                             ),
                           );
@@ -125,7 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: Column(
           children: [
-            const Text('Tayf Eğitim', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Tayf Eğitim Merkezi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             Text('Build V1.$displayBuild | By: Tayfun YAMAK ©', style: const TextStyle(fontSize: 10)),
           ],
         ),
@@ -151,8 +154,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         ListTile(
-                          leading: const Icon(Icons.auto_stories, color: Colors.green),
+                          leading: const Icon(Icons.auto_stories, color: Colors.blueAccent),
                           title: const Text('Kitap Okuma Modu', style: TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: const Text('Kütüphaneye Git'),
                           tileColor: colorScheme.surfaceVariant,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           onTap: () {
@@ -162,8 +166,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 8),
                         ListTile(
-                          leading: const Icon(Icons.folder_open, color: Colors.blue),
+                          leading: const Icon(Icons.folder_open, color: Colors.green),
                           title: const Text('Dosya İçe Aktar'),
+                          subtitle: const Text('EPUB, TXT Cihazdan Seç'),
                           onTap: () async {
                             Navigator.pop(context); 
                             final bool? success = await Navigator.push(
@@ -172,6 +177,33 @@ class _HomeScreenState extends State<HomeScreen> {
                             );
                             if (success == true) setState(() {}); 
                           },
+                        ),
+                        const Divider(),
+
+                        Text('Kitaplarım (${BookDatabase.instance.getBooks().length})', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.primary)),
+                        const SizedBox(height: 6),
+                        Container(
+                          constraints: const BoxConstraints(maxHeight: 150),
+                          decoration: BoxDecoration(border: Border.all(color: colorScheme.outlineVariant), borderRadius: BorderRadius.circular(8)),
+                          child: BookDatabase.instance.getBooks().isEmpty
+                              ? const Center(child: Text('Kütüphane Boş', style: TextStyle(fontSize: 11, color: Colors.grey)))
+                              : ListView.builder(
+                                  shrinkWrap: true,
+                                  itemCount: BookDatabase.instance.getBooks().length,
+                                  itemBuilder: (context, bIdx) {
+                                    final b = BookDatabase.instance.getBooks()[bIdx];
+                                    return ListTile(
+                                      dense: true,
+                                      leading: const Icon(Icons.menu_book, size: 16, color: Colors.grey),
+                                      title: Text(b.title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                      subtitle: Text('Sayfa: ${b.totalPages} | Kaldığı: ${b.lastPage + 1}', style: const TextStyle(fontSize: 9)),
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        _startBookModeWizard();
+                                      },
+                                    );
+                                  },
+                                ),
                         ),
                         const Divider(),
 
@@ -205,10 +237,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const Divider(),
 
-                        Text('Okuma Ayarları', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.primary)),
+                        Text('Okuma Ayarları (Kalıcı)', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.primary)),
                         Slider(
                           value: themeMgr.readerFontSize,
-                          min: 14, max: 30, divisions: 8,
+                          min: 14, max: 40, divisions: 13,
                           label: "Punto: ${themeMgr.readerFontSize.round()}",
                           onChanged: (v) {
                             themeMgr.updateReaderSettings(v, themeMgr.readerFontFamily, themeMgr.readerTextColor);
