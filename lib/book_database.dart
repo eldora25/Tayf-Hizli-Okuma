@@ -45,7 +45,6 @@ class BookDatabase {
 
   List<BookModel> getBooks() => _myBooks;
 
-  // Cihaz hafızasından daha önce eklenen kitapları yükler
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     final String? booksJson = prefs.getString('saved_books');
@@ -98,6 +97,8 @@ class BookDatabase {
         content = parseEpubBytes(file['bytes'] as Uint8List);
       } else if (file['format'] == 'TXT') {
         content = utf8.decode(file['bytes'] as Uint8List, allowMalformed: true);
+      } else if (file['format'] == 'DOCX') {
+        content = parseDocxBytes(file['bytes'] as Uint8List);
       }
       _addSingleBook(title, file['format'] as String, content);
     }
@@ -128,6 +129,29 @@ class BookDatabase {
       return sb.toString().trim();
     } catch (e) {
       return "E-Kitap Ayrıştırma Hatası.";
+    }
+  }
+
+  /// DOCX (Zip Arşivi) içerisindeki word/document.xml verisini ayıklar ve düz metne çevirir
+  String parseDocxBytes(Uint8List bytes) {
+    try {
+      final archive = ZipDecoder().decodeBytes(bytes);
+      final file = archive.findFile('word/document.xml');
+      
+      if (file != null) {
+        final xmlContent = utf8.decode(file.content as List<int>, allowMalformed: true);
+        
+        // Paragraflar arasına boşluk koyarak kelimelerin yapışmasını engeller
+        String text = xmlContent.replaceAll(RegExp(r'<w:p[^>]*>'), ' <w:p> ');
+        
+        // Kalan tüm XML etiketlerini siler
+        text = text.replaceAll(RegExp(r'<[^>]*>'), ' ');
+        text = text.replaceAll(RegExp(r'\s+'), ' ');
+        return text.trim();
+      }
+      return "DOCX metin içeriği bulunamadı.";
+    } catch (e) {
+      return "DOCX Ayrıştırma Hatası: Belge formatı desteklenmiyor olabilir.";
     }
   }
 
