@@ -27,15 +27,12 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // EKLENDİ: Uygulama açıldığında Assets klasöründeki EPUB'ları sessizce yükler ve arayüzü günceller
     _loadAssets();
   }
 
   Future<void> _loadAssets() async {
     await BookDatabase.instance.loadDefaultAssets();
-    if (mounted) {
-      setState(() {}); // Yükleme sonrası listeyi otomatik olarak tazele
-    }
+    if (mounted) setState(() {}); 
   }
 
   Future<void> _fetchTextFromUrl(String url) async {
@@ -66,28 +63,28 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Adım 1: Okuma Modunu Seçin', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const Text('1. Okuma Modunu Seçin', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               DropdownButton<int>(
                 value: chosenMode,
                 isExpanded: true,
                 items: const [
-                  DropdownMenuItem(value: 1, child: Text('Mod 1: Klasik RSVP Tek Kelime')),
-                  DropdownMenuItem(value: 2, child: Text('Mod 2: Tüm Sayfa Kelime Highlight')),
-                  DropdownMenuItem(value: 3, child: Text('Mod 3: Satır Merkez Odaklama')),
-                  DropdownMenuItem(value: 4, child: Text('Mod 4: Sayfa Yoğunluk Akışı')),
+                  DropdownMenuItem(value: 1, child: Text('Mod 1: RSVP Odak')),
+                  DropdownMenuItem(value: 2, child: Text('Mod 2: Sayfa Highlight')),
+                  DropdownMenuItem(value: 3, child: Text('Mod 3: Satır Odak')),
+                  DropdownMenuItem(value: 4, child: Text('Mod 4: Sayfa Merkez Odak')),
                 ],
                 onChanged: (val) {
                   if (val != null) setWizardState(() => chosenMode = val);
                 },
               ),
               const SizedBox(height: 12),
-              const Text('Adım 2: Kitaplığınızdan Seçim Yapın', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const Text('2. Kütüphaneniz', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
               SizedBox(
-                height: 150,
+                height: 200,
                 width: double.maxFinite,
                 child: BookDatabase.instance.getBooks().isEmpty
-                    ? const Center(child: Text('Kitaplığınız boş. Lütfen önce dosya yükleyin.', style: TextStyle(fontSize: 12, color: Colors.grey)))
+                    ? const Center(child: Text('Kitaplığınız boş.', style: TextStyle(fontSize: 12, color: Colors.grey)))
                     : ListView.builder(
                         itemCount: BookDatabase.instance.getBooks().length,
                         itemBuilder: (context, idx) {
@@ -95,8 +92,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           return Card(
                             child: ListTile(
                               dense: true,
-                              title: Text(book.title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                              subtitle: Text('Format: ${book.format} | Sayfa: ${book.totalPages} | Kalınan: ${book.lastPage + 1}'),
+                              title: Text(book.title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              subtitle: Text('Sayfa: ${book.totalPages} | Kalınan: ${book.lastPage + 1}'),
                               trailing: const Icon(Icons.play_circle_outline, color: Colors.green),
                               onTap: () {
                                 Navigator.pop(context);
@@ -121,15 +118,15 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final displayBuild = _buildNumber.contains("PLACEHOLDER") ? "36" : _buildNumber;
+    final displayBuild = _buildNumber.contains("PLACEHOLDER") ? "71" : _buildNumber;
     final themeMgr = ThemeManager.instance;
 
     return Scaffold(
       appBar: AppBar(
         title: Column(
           children: [
-            const Text('Tayf Hızlı Okuma', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text('Eğitim Paneli V1.$displayBuild | By: Tayfun YAMAK ©', style: const TextStyle(fontSize: 10)),
+            const Text('Tayf Eğitim', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Build V1.$displayBuild | By: Tayfun YAMAK ©', style: const TextStyle(fontSize: 10)),
           ],
         ),
         centerTitle: true,
@@ -145,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   color: colorScheme.primaryContainer,
-                  child: Text('⚙️ Kontrol Merkezi & Ayarlar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: colorScheme.onPrimaryContainer)),
+                  child: Text('⚙️ Ayarlar & Kütüphane', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: colorScheme.onPrimaryContainer)),
                 ),
                 Expanded(
                   child: SingleChildScrollView(
@@ -155,8 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         ListTile(
                           leading: const Icon(Icons.auto_stories, color: Colors.green),
-                          title: const Text('Kitap Modunu Başlat', style: TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: const Text('Mod ve Kaynak Seçim Sihirbazı'),
+                          title: const Text('Kitap Okuma Modu', style: TextStyle(fontWeight: FontWeight.bold)),
                           tileColor: colorScheme.surfaceVariant,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           onTap: () {
@@ -164,57 +160,22 @@ class _HomeScreenState extends State<HomeScreen> {
                             _startBookModeWizard();
                           },
                         ),
-                        const Divider(),
-                        
+                        const SizedBox(height: 8),
                         ListTile(
                           leading: const Icon(Icons.folder_open, color: Colors.blue),
-                          title: const Text('Çoklu Kitap İçe Aktar'),
-                          subtitle: const Text('Evrensel Dosya Ayrıştırıcı Paneli'),
+                          title: const Text('Dosya İçe Aktar'),
                           onTap: () async {
-                            Navigator.pop(context); // Drawer'ı kararlı kapat
+                            Navigator.pop(context); 
                             final bool? success = await Navigator.push(
                               context,
                               MaterialPageRoute(builder: (context) => const FilePickerScreen()),
                             );
-                            if (success == true) {
-                              setState(() {}); // Kitap listesi görünümünü anında tazele
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Tüm gerçek dosyalar başarıyla yerel veritabanına eklendi!')),
-                                );
-                              }
-                            }
+                            if (success == true) setState(() {}); 
                           },
                         ),
                         const Divider(),
 
-                        Text('Kitaplarım & Belgelerim', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.primary)),
-                        const SizedBox(height: 6),
-                        Container(
-                          constraints: const BoxConstraints(maxHeight: 140),
-                          decoration: BoxDecoration(border: Border.all(color: colorScheme.outlineVariant), borderRadius: BorderRadius.circular(8)),
-                          child: BookDatabase.instance.getBooks().isEmpty
-                              ? const Center(child: Padding(
-                                  padding: EdgeInsets.all(8.0),
-                                  child: Text('Kitaplık boş, yukarıdan aktarın.', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                                ))
-                              : ListView.builder(
-                                  shrinkWrap: true,
-                                  itemCount: BookDatabase.instance.getBooks().length,
-                                  itemBuilder: (context, bIdx) {
-                                    final b = BookDatabase.instance.getBooks()[bIdx];
-                                    return ListTile(
-                                      dense: true,
-                                      leading: const Icon(Icons.menu_book, size: 16, color: Colors.grey),
-                                      title: Text(b.title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                      subtitle: Text('Sayfa: ${b.totalPages} | Kaldığı: ${b.lastPage + 1}', style: const TextStyle(fontSize: 9)),
-                                    );
-                                  },
-                                ),
-                        ),
-                        const Divider(),
-
-                        Text('Görünüm Modu', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.primary)),
+                        Text('Görünüm & Tema', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.primary)),
                         const SizedBox(height: 6),
                         SegmentedButton<ThemeMode>(
                           segments: const [
@@ -223,41 +184,35 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                           selected: {themeMgr.themeMode},
                           onSelectionChanged: (newSelection) {
-                            setDrawerState(() => themeMgr.setThemeMode(newSelection.first));
-                            setState(() {});
+                            themeMgr.setThemeMode(newSelection.first);
+                            setDrawerState(() {});
                           },
                         ),
                         const SizedBox(height: 12),
-                        
-                        Text('Renk Temaları', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.primary)),
-                        const SizedBox(height: 6),
                         Wrap(
                           spacing: 6,
                           runSpacing: 6,
                           children: AppThemePalette.values.map((palette) {
-                            final isSelected = themeMgr.currentPalette == palette;
                             return ChoiceChip(
                               label: Text(themeMgr.getPaletteName(palette), style: const TextStyle(fontSize: 10)),
-                              selected: isSelected,
+                              selected: themeMgr.currentPalette == palette,
                               onSelected: (val) {
-                                if (val) {
-                                  setDrawerState(() => themeMgr.setPalette(palette));
-                                  setState(() {});
-                                }
+                                if (val) themeMgr.setPalette(palette);
+                                setDrawerState(() {});
                               },
                             );
                           }).toList(),
                         ),
                         const Divider(),
 
-                        Text('Okuma Font Boyutu', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.primary)),
+                        Text('Okuma Ayarları', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.primary)),
                         Slider(
                           value: themeMgr.readerFontSize,
                           min: 14, max: 30, divisions: 8,
-                          label: "Boyut: ${themeMgr.readerFontSize.round()}",
+                          label: "Punto: ${themeMgr.readerFontSize.round()}",
                           onChanged: (v) {
-                            setDrawerState(() => themeMgr.updateReaderSettings(v, themeMgr.readerFontFamily, themeMgr.readerTextColor));
-                            setState(() {});
+                            themeMgr.updateReaderSettings(v, themeMgr.readerFontFamily, themeMgr.readerTextColor);
+                            setDrawerState(() {});
                           },
                         ),
                         Row(
@@ -266,33 +221,30 @@ class _HomeScreenState extends State<HomeScreen> {
                             return ChoiceChip(
                               label: Text(font, style: const TextStyle(fontSize: 10)),
                               selected: themeMgr.readerFontFamily == font,
-                              onSelected: (selected) {
-                                if (selected) {
-                                  setDrawerState(() => themeMgr.updateReaderSettings(themeMgr.readerFontSize, font, themeMgr.readerTextColor));
-                                  setState(() {});
-                                }
+                              onSelected: (s) {
+                                if (s) themeMgr.updateReaderSettings(themeMgr.readerFontSize, font, themeMgr.readerTextColor);
+                                setDrawerState(() {});
                               },
                             );
                           }).toList(),
                         ),
                         const SizedBox(height: 10),
-                        Text('Odaklama Harf Rengi', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.primary)),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [Colors.red, Colors.amber, Colors.blue, Colors.green].map((color) {
                             return GestureDetector(
                               onTap: () {
-                                setDrawerState(() => themeMgr.updateReaderSettings(themeMgr.readerFontSize, themeMgr.readerFontFamily, color));
-                                setState(() {});
+                                themeMgr.updateReaderSettings(themeMgr.readerFontSize, themeMgr.readerFontFamily, color);
+                                setDrawerState(() {});
                               },
                               child: CircleAvatar(
                                 backgroundColor: color,
                                 radius: 12,
-                                child: themeMgr.readerTextColor == color ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                                child: themeMgr.readerTextColor.value == color.value ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
                               ),
                             );
                           }).toList(),
-                        )
+                        ),
                       ],
                     ),
                   ),
@@ -307,7 +259,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('1. Hazır Hızlı Okuma Antrenmanları', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+            Text('1. Hazır Egzersizler', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
             Card(
               child: ListView.builder(
@@ -325,7 +277,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Text('2. URL Adresinden Eğitim Metni Çek', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+            Text('2. İnternetten Metin Çek', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
             Row(
               children: [
                 Expanded(child: TextField(controller: _urlController, decoration: const InputDecoration(hintText: 'https://makale-linki...'))),
@@ -333,16 +285,16 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            Text('3. Kopyala / Yapıştır Eğitim Metni Alanı', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+            Text('3. Serbest Eğitim Alanı', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
-            TextField(controller: _textController, maxLines: 5, decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Metni buraya ekleyin...')),
+            TextField(controller: _textController, maxLines: 5, decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Metni buraya yapıştırın...')),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               height: 52,
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.model_training, color: Colors.white),
-                label: const Text('Eğitim Egzersizini Başlat', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                label: const Text('Eğitimi Başlat', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
                 style: ElevatedButton.styleFrom(backgroundColor: colorScheme.primary),
                 onPressed: () {
                   if (_textController.text.isEmpty) return;
