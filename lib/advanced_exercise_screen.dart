@@ -31,10 +31,7 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
   bool _isPlaying = false;
   Timer? _timer;
 
-  // Sayfalama (Pagination) için değişken
   final int _chunksPerPage = 60;
-  
-  // Otomatik merkez kaydırma (Auto-Scroll) anahtarı
   final GlobalKey _activeChunkKey = GlobalKey();
 
   bool _isFlashing = false;
@@ -85,14 +82,13 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
     }
   }
 
-  // Odaklı kelime grubunu ekranın merkezine yumuşakça çeker (Ekrandan taşmayı engeller)
   void _scrollToActiveChunk() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_activeChunkKey.currentContext != null) {
         Scrollable.ensureVisible(
           _activeChunkKey.currentContext!,
-          alignment: 0.5,
-          duration: const Duration(milliseconds: 200),
+          alignment: 0.5, // Her zaman ekranın tam ortasında hizalar
+          duration: const Duration(milliseconds: 150),
           curve: Curves.easeInOut,
         );
       }
@@ -101,7 +97,6 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
 
   void _togglePlay() {
     if (_isPlaying) {
-      _timer?.cancel();
       setState(() {
         _isPlaying = false;
         if (_currentExerciseType == 4) {
@@ -110,6 +105,7 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
           _takistoskopFeedback = "Duraklatıldı";
         }
       });
+      _timer?.cancel();
       _saveProgress();
     } else {
       setState(() => _isPlaying = true);
@@ -124,12 +120,15 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
   void _runStandardTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(Duration(milliseconds: _speedMs), (timer) {
-      if (!mounted) return;
+      if (!mounted || !_isPlaying) {
+        timer.cancel(); // Duraklatıldığında Timer'ı kesin olarak öldür
+        return;
+      }
       setState(() {
         if (_currentChunkIndex < _chunks.length - 1) {
           _currentChunkIndex++;
         } else {
-          _timer?.cancel();
+          timer.cancel();
           _isPlaying = false;
         }
       });
@@ -149,7 +148,7 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
     });
 
     _timer = Timer(Duration(milliseconds: _speedMs), () {
-      if (!mounted) return;
+      if (!mounted || !_isPlaying) return;
       setState(() {
         _isFlashing = false;
         _isWaitingForInput = true;
@@ -242,10 +241,7 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
                       onPressed: () => _checkTakistoskopInput(_inputController.text),
                       icon: const Icon(Icons.check_circle),
                       label: const Text("Onayla", style: TextStyle(fontWeight: FontWeight.bold)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: focusCol,
-                        foregroundColor: Colors.white,
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: focusCol, foregroundColor: Colors.white),
                     ),
                   ],
                 ),
@@ -271,23 +267,25 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
       Color bgColor = Colors.transparent;
 
       if (_currentExerciseType == 2) {
+        // MOD 2: GÖLGELEME ÇALIŞMASI (Her şey görünür, okunan alan kutu/gölge içine alınır)
         if (isCurrent) {
-          wordColor = focusCol;
-          bgColor = focusCol.withOpacity(0.1);
+          wordColor = textCol;
+          bgColor = textCol.withOpacity(0.3); // Koyu Gölge efekti
         } else {
-          wordColor = Colors.transparent; 
-          bgColor = textCol.withOpacity(0.3); 
+          wordColor = textCol; 
+          bgColor = Colors.transparent; 
         }
       } else if (_currentExerciseType == 3) {
+        // MOD 3: GRUPLAMA ÇALIŞMASI (Her yer gölgeli başlar, sadece okunan alan açılır/aydınlanır)
         if (isCurrent) {
-          wordColor = Colors.transparent;
-          bgColor = textCol.withOpacity(0.4); 
+          wordColor = textCol; // Metin açığa çıktı
+          bgColor = Colors.transparent; // Gölge kalktı
         } else {
-          wordColor = textCol;
+          wordColor = Colors.transparent; // Metin gölge altında gizli
+          bgColor = textCol.withOpacity(0.4); // Koyu Blok Gölgeler
         }
       }
 
-      // Hangi kelimenin ekranda ortalanacağını belirleyen sihirli anahtar bağlantısı
       wordWidgets.add(
         Container(
           key: isCurrent ? _activeChunkKey : null,
@@ -303,9 +301,17 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
     }
 
     return SingleChildScrollView(
-      child: Wrap(
-        alignment: WrapAlignment.start,
-        children: wordWidgets,
+      child: Column(
+        children: [
+          // En üst kelimenin ekranın ortasına gelebilmesi için merkezleme boşluğu
+          SizedBox(height: MediaQuery.of(context).size.height * 0.35),
+          Wrap(
+            alignment: WrapAlignment.center,
+            children: wordWidgets,
+          ),
+          // En alt kelimenin ekranın ortasına gelebilmesi için merkezleme boşluğu
+          SizedBox(height: MediaQuery.of(context).size.height * 0.35),
+        ],
       ),
     );
   }
@@ -329,7 +335,6 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
             backgroundColor: bg,
             foregroundColor: textCol,
             actions: [
-              // Hızlı Mod Değiştirme Menüsü
               DropdownButton<int>(
                 value: _currentExerciseType,
                 dropdownColor: bg,
@@ -371,72 +376,76 @@ class _AdvancedExerciseScreenState extends State<AdvancedExerciseScreen> {
               ),
               Expanded(
                 child: Container(
-                  margin: const EdgeInsets.all(16),
-                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(color: textCol.withOpacity(0.04), borderRadius: BorderRadius.circular(12)),
                   child: _buildExerciseArea(textCol, focusCol, fSize, fFamily),
                 ),
               ),
               
-              Container(
-                padding: const EdgeInsets.all(16),
-                color: textCol.withOpacity(0.03),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.speed, color: textCol, size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Slider(
-                            value: _speedMs.toDouble(),
-                            min: 50, max: 1500, divisions: 29,
-                            activeColor: focusCol,
-                            onChanged: (val) {
-                              setState(() {
-                                _speedMs = val.round();
-                                if (_isPlaying && _currentExerciseType != 4) _runStandardTimer();
-                              });
-                            },
+              // SafeArea ile sanal tuş koruması eklendi
+              SafeArea(
+                bottom: true,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  color: textCol.withOpacity(0.03),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.speed, color: textCol, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Slider(
+                              value: _speedMs.toDouble(),
+                              min: 50, max: 1500, divisions: 29,
+                              activeColor: focusCol,
+                              onChanged: (val) {
+                                setState(() {
+                                  _speedMs = val.round();
+                                  if (_isPlaying && _currentExerciseType != 4) _runStandardTimer();
+                                });
+                              },
+                            ),
                           ),
-                        ),
-                        SizedBox(width: 50, child: Text('$_speedMs ms', style: TextStyle(color: textCol, fontSize: 11, fontWeight: FontWeight.bold))),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Icon(Icons.format_size, color: textCol, size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Slider(
-                            value: _chunkSize.toDouble(),
-                            min: 1, max: 5, divisions: 4,
-                            activeColor: focusCol,
-                            onChanged: (val) {
-                              setState(() {
-                                _chunkSize = val.round();
-                                _generateChunks();
-                                if (_isPlaying && _currentExerciseType != 4) _runStandardTimer();
-                              });
-                            },
-                          ),
-                        ),
-                        SizedBox(width: 50, child: Text('$_chunkSize Kel.', style: TextStyle(color: textCol, fontSize: 11, fontWeight: FontWeight.bold))),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton.icon(
-                        onPressed: _togglePlay,
-                        style: ElevatedButton.styleFrom(backgroundColor: focusCol, foregroundColor: Colors.white),
-                        icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-                        label: Text(_isPlaying ? 'DURDUR' : 'BAŞLAT', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          SizedBox(width: 50, child: Text('$_speedMs ms', style: TextStyle(color: textCol, fontSize: 11, fontWeight: FontWeight.bold))),
+                        ],
                       ),
-                    ),
-                  ],
+                      Row(
+                        children: [
+                          Icon(Icons.format_size, color: textCol, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Slider(
+                              value: _chunkSize.toDouble(),
+                              min: 1, max: 5, divisions: 4,
+                              activeColor: focusCol,
+                              onChanged: (val) {
+                                setState(() {
+                                  _chunkSize = val.round();
+                                  _generateChunks();
+                                  if (_isPlaying && _currentExerciseType != 4) _runStandardTimer();
+                                });
+                              },
+                            ),
+                          ),
+                          SizedBox(width: 50, child: Text('$_chunkSize Kel.', style: TextStyle(color: textCol, fontSize: 11, fontWeight: FontWeight.bold))),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton.icon(
+                          onPressed: _togglePlay,
+                          style: ElevatedButton.styleFrom(backgroundColor: focusCol, foregroundColor: Colors.white),
+                          icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
+                          label: Text(_isPlaying ? 'DURDUR' : 'BAŞLAT', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
