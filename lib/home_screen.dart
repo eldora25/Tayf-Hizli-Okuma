@@ -61,6 +61,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _startBookModeWizard() {
     int chosenMode = ThemeManager.instance.savedReaderMode;
+    // Eğer kaydedilen mod 1-6 arasında değilse 1'e sabitle
+    if (chosenMode < 1 || chosenMode > 6) chosenMode = 1; 
+    
     BookModel? selectedBook;
 
     if (BookDatabase.instance.getBooks().isNotEmpty) {
@@ -79,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) {
         return DraggableScrollableSheet(
           expand: false,
-          initialChildSize: 0.6,
+          initialChildSize: 0.65,
           maxChildSize: 0.9,
           minChildSize: 0.4,
           builder: (_, controller) => StatefulBuilder(
@@ -102,6 +105,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         DropdownMenuItem(value: 2, child: Text('Mod 2: Sayfa İçi Highlight')),
                         DropdownMenuItem(value: 3, child: Text('Mod 3: Satır Odaklaması')),
                         DropdownMenuItem(value: 4, child: Text('Mod 4: Sayfa Merkez Odaklaması')),
+                        DropdownMenuItem(value: 5, child: Text('Mod 5: Gölgeleme (Aktif Blok)')),
+                        DropdownMenuItem(value: 6, child: Text('Mod 6: Gruplama (Aktif Açık)')),
                       ],
                       onChanged: (val) {
                         if (val != null) setWizardState(() => chosenMode = val);
@@ -283,7 +288,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final displayBuild = _buildNumber.contains("PLACEHOLDER") ? "96" : _buildNumber;
+    final displayBuild = _buildNumber.contains("PLACEHOLDER") ? "99" : _buildNumber;
     final themeMgr = ThemeManager.instance;
 
     return Scaffold(
@@ -453,7 +458,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('1. Göz ve Algı Egzersizleri (Yeni)', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+              Text('1. Göz ve Algı Egzersizleri', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
               Card(
                 elevation: 3,
