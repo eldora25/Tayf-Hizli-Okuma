@@ -63,9 +63,10 @@ class BookDatabase {
   Future<void> loadDefaultAssets() async {
     if (_assetsLoaded) return;
     final assetBooks = [
-      {'path': 'assets/kitap1.epub', 'title': 'Üç Cisim Problemi - Tek Cilt İthaki Yayınları'},
-      {'path': 'assets/kitap2.epub', 'title': 'Nutuk - Gençler İçin Fotoğraflarla (Mustafa Kemal Atatürk)'},
-      {'path': 'assets/kitap3.epub', 'title': 'Nutuk - Yapı Kredi Yayınları'},
+      {'path': 'assets/kitap1.epub', 'title': 'Üç Cisim Problemi - Tek Cilt İthaki Yayınları', 'format': 'EPUB'},
+      {'path': 'assets/kitap2.epub', 'title': 'Nutuk - Gençler İçin Fotoğraflarla (Mustafa Kemal Atatürk)', 'format': 'EPUB'},
+      {'path': 'assets/kitap3.epub', 'title': 'Nutuk - Yapı Kredi Yayınları', 'format': 'EPUB'},
+      {'path': 'assets/okuma_teknikleri.txt', 'title': 'Anlayarak Hızlı Okuma Teknikleri', 'format': 'TXT'},
     ];
 
     for (var asset in assetBooks) {
@@ -73,8 +74,15 @@ class BookDatabase {
         try {
           final byteData = await rootBundle.load(asset['path']!);
           final bytes = byteData.buffer.asUint8List();
-          final content = parseEpubBytes(bytes);
-          _addSingleBook(asset['title']!, 'EPUB', content);
+          String content = '';
+          
+          if (asset['format'] == 'EPUB') {
+            content = parseEpubBytes(bytes);
+          } else if (asset['format'] == 'TXT') {
+            content = utf8.decode(bytes, allowMalformed: true);
+          }
+          
+          _addSingleBook(asset['title']!, asset['format']!, content);
         } catch (e) {
           debugPrint("Asset yüklenemedi: $e");
         }
@@ -132,7 +140,6 @@ class BookDatabase {
     }
   }
 
-  /// DOCX (Zip Arşivi) içerisindeki word/document.xml verisini ayıklar ve düz metne çevirir
   String parseDocxBytes(Uint8List bytes) {
     try {
       final archive = ZipDecoder().decodeBytes(bytes);
@@ -140,11 +147,7 @@ class BookDatabase {
       
       if (file != null) {
         final xmlContent = utf8.decode(file.content as List<int>, allowMalformed: true);
-        
-        // Paragraflar arasına boşluk koyarak kelimelerin yapışmasını engeller
         String text = xmlContent.replaceAll(RegExp(r'<w:p[^>]*>'), ' <w:p> ');
-        
-        // Kalan tüm XML etiketlerini siler
         text = text.replaceAll(RegExp(r'<[^>]*>'), ' ');
         text = text.replaceAll(RegExp(r'\s+'), ' ');
         return text.trim();
