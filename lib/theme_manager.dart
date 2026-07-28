@@ -7,14 +7,14 @@ class ThemeManager extends ChangeNotifier {
   static final ThemeManager instance = ThemeManager._internal();
   ThemeManager._internal();
 
-  ThemeMode themeMode = ThemeMode.dark; // Varsayılan Koyu Mod
+  ThemeMode themeMode = ThemeMode.dark; // Varsayılan olarak Koyu Mod
   AppThemePalette currentPalette = AppThemePalette.darkVoid;
   
   double readerFontSize = 18.0;
   String readerFontFamily = 'sans-serif';
   Color readerTextColor = Colors.red;
 
-  // Kalıcı hafızadan ayarları yükler
+  // Kalıcı hafızadan kullanıcı ayarlarını yükler
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     themeMode = ThemeMode.values[prefs.getInt('themeMode') ?? ThemeMode.dark.index];
@@ -61,7 +61,7 @@ class ThemeManager extends ChangeNotifier {
     }
   }
 
-  // ORP Harfini çok daha belirgin, kalın ve fosforlu yapar
+  // ORP Harfinin göz kasları tarafından anında yakalanması için daha parlak (fosforlu) renkler
   Color getVibrantOrpColor() {
     if (readerTextColor == Colors.red) return const Color(0xFFFF1744); 
     if (readerTextColor == Colors.amber) return const Color(0xFFFF9100); 
