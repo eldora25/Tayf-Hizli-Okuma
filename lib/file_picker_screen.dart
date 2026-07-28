@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart'; // .dart uzantısı eklendi
-import 'package:file_picker/file_picker.dart'; // Gerçek cihaz dosyalarına erişim eklendi
+import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'book_database.dart';
 
 class FilePickerScreen extends StatefulWidget {
@@ -13,14 +13,13 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
   final List<Map<String, dynamic>> _pickedFilesResult = [];
   bool _isSaving = false;
 
-  /// Cihazın yerel depolamasından gerçek EPUB veya TXT kitapları seçmeyi sağlar
   Future<void> _pickRealFiles() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['epub', 'txt'],
+        allowedExtensions: ['epub', 'txt', 'docx'], // DOCX uzantısı eklendi
         allowMultiple: true,
-        withData: true, // Dosyaları byte formatında ayrıştırmak için zorunludur
+        withData: true,
       );
 
       if (result != null) {
@@ -45,7 +44,6 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
     }
   }
 
-  /// "Kitabı Uygulamaya Yükle" butonunun asenkron beklemeyi yapıp ana sayfaya güvenle döndüğü işlev
   Future<void> _handleSaveBooks() async {
     if (_pickedFilesResult.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -59,14 +57,12 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
     });
 
     try {
-      // Veritabanına asenkron yazma işlemi bekleniyor
       await BookDatabase.instance.addMultipleBooks(List.from(_pickedFilesResult));
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Kitaplar başarıyla kütüphaneye eklendi.')),
         );
-        // Kitaplar başarıyla eklendikten sonra listenin yenilenmesi için ana ekrana başarılı dönüt gönderilir
         Navigator.pop(context, true);
       }
     } catch (e) {
@@ -98,9 +94,9 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ElevatedButton.icon(
-                    onPressed: _pickRealFiles, // Sahte veri ekleyen metot gerçek file_picker ile değiştirildi
+                    onPressed: _pickRealFiles,
                     icon: const Icon(Icons.file_open),
-                    label: const Text('Cihazdan Kitap Seç (EPUB/TXT)'),
+                    label: const Text('Cihazdan Kitap Seç (EPUB / TXT / DOCX)'), // UI Güncellendi
                   ),
                   const SizedBox(height: 10),
                   Expanded(
