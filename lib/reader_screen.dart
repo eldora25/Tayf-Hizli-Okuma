@@ -22,29 +22,22 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Timer? _timer;
   bool _isPlaying = false;
   
-  // Metni ekran düzeninde kaymadan tutan matris yapısı
-  final int _wordsPerLine = 8; 
-  final int _linesPerPage = 6;
-  int get _wordsPerPage => _wordsPerLine * _linesPerPage;
+  // Ekrandaki font boyutuna göre otomatik analiz edilecek satır/sayfa matrisi
+  int _wpl = 6; // Words Per Line
+  int _lpp = 8; // Lines Per Page
+  int get _wpp => _wpl * _lpp; // Words Per Page
   int _totalChunks = 1;
 
   @override
   void initState() {
     super.initState();
-    
     _words = widget.rawText.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     if (_words.isEmpty) _words = ["Metin", "içeriği", "boş."];
     
-    _totalChunks = (_words.length / _wordsPerPage).ceil();
-    if (_totalChunks < 1) _totalChunks = 1;
-
     if (widget.activeBook != null) {
       _wpm = widget.activeBook!.savedWpm;
       _readingMode = widget.activeBook!.savedMode;
-      int savedIndex = widget.activeBook!.lastPage * _wordsPerPage;
-      if (savedIndex < _words.length) {
-        _currentWordIndex = savedIndex;
-      }
+      // İndeksi daha sonra build içinde _wpp hesaplanınca düzelteceğiz
     }
   }
 
@@ -54,16 +47,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
     super.dispose();
   }
 
-  int get _currentPage => (_currentWordIndex / _wordsPerPage).floor();
+  int get _currentPage => (_wpp > 0) ? (_currentWordIndex ~/ _wpp) : 0;
 
   void _saveCurrentProgress() {
-    if (widget.activeBook != null) {
+    if (widget.activeBook != null && _wpp > 0) {
       BookDatabase.instance.saveProgress(widget.activeBook!.id, _currentPage, _wpm, _readingMode);
     }
-  }
-
-  int _calculateDurationMs() {
-    return (60000 / _wpm).round();
   }
 
   void _togglePlay() {
@@ -80,44 +69,35 @@ class _ReaderScreenState extends State<ReaderScreen> {
   void _runTimer() {
     _timer?.cancel();
     
-    int duration = _calculateDurationMs();
+    int durationMs = (60000 / _wpm).round();
     
-    // Mod 3: Hıza bağlı olarak SATIR atlama süresi
+    // Mod 3 (Satır Satır) ise süre Satır Kelimesi kadar çarpılır
     if (_readingMode == 3) {
-      duration = duration * _wordsPerLine; 
+      durationMs *= _wpl; 
     } 
-    // Mod 4: Hıza bağlı olarak SAYFA atlama süresi
+    // Mod 4 (Sayfa Sayfa) ise süre Sayfa Kelimesi kadar çarpılır
     else if (_readingMode == 4) {
-      duration = duration * _wordsPerPage; 
+      durationMs *= _wpp; 
     }
 
-    _timer = Timer.periodic(Duration(milliseconds: duration), (timer) {
+    _timer = Timer.periodic(Duration(milliseconds: durationMs), (timer) {
       if (!mounted) return;
 
       setState(() {
         if (_readingMode == 3) {
-          int nextIndex = _currentWordIndex + _wordsPerLine;
-          if (nextIndex < _words.length) {
-            _currentWordIndex = (nextIndex ~/ _wordsPerLine) * _wordsPerLine;
-          } else {
-            _timer?.cancel();
-            _isPlaying = false;
-          }
+          _currentWordIndex += _wpl;
+          _currentWordIndex = (_currentWordIndex ~/ _wpl) * _wpl; // Satır başına kilitle
         } else if (_readingMode == 4) {
-          int nextIndex = _currentWordIndex + _wordsPerPage;
-          if (nextIndex < _words.length) {
-            _currentWordIndex = (nextIndex ~/ _wordsPerPage) * _wordsPerPage;
-          } else {
-            _timer?.cancel();
-            _isPlaying = false;
-          }
+          _currentWordIndex += _wpp;
+          _currentWordIndex = (_currentWordIndex ~/ _wpp) * _wpp; // Sayfa başına kilitle
         } else {
-          if (_currentWordIndex < _words.length - 1) {
-            _currentWordIndex++;
-          } else {
-            _timer?.cancel();
-            _isPlaying = false;
-          }
+          _currentWordIndex++; // Mod 1 ve 2 kelime kelime ilerler
+        }
+
+        if (_currentWordIndex >= _words.length) {
+          _currentWordIndex = _words.length - 1;
+          _timer?.cancel();
+          _isPlaying = false;
         }
       });
       _saveCurrentProgress();
@@ -126,16 +106,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   void _jumpPages(int pageOffset) {
     setState(() {
-      int newWordIndex = _currentWordIndex + (pageOffset * _wordsPerPage);
+      int newWordIndex = _currentWordIndex + (pageOffset * _wpp);
       if (newWordIndex < 0) newWordIndex = 0;
       if (newWordIndex >= _words.length) newWordIndex = _words.length - 1;
-      _currentWordIndex = (newWordIndex ~/ _wordsPerPage) * _wordsPerPage;
+      _currentWordIndex = (newWordIndex ~/ _wpp) * _wpp;
       
       if (_isPlaying) _runTimer();
     });
     _saveCurrentProgress();
   }
 
+  /// Otomatik Font Değiştirmeyen ORP Motoru
   TextSpan _buildORPSpan(String word, double baseSize, Color regColor, Color orpColor, String fontFam, {bool isLarge = false}) {
     if (word.isEmpty) return const TextSpan();
     
@@ -147,14 +128,15 @@ class _ReaderScreenState extends State<ReaderScreen> {
     String p2 = word.substring(focusIndex, focusIndex + 1);
     String p3 = word.substring(focusIndex + 1);
 
-    double orpSize = isLarge ? baseSize * 1.5 : baseSize * 1.1;
+    // Kırmızı ORP harfi daha kalın ve çok hafif büyük
+    double orpSize = isLarge ? baseSize * 1.3 : baseSize * 1.1;
     FontWeight orpWeight = isLarge ? FontWeight.w900 : FontWeight.bold;
     FontWeight regWeight = isLarge ? FontWeight.w600 : FontWeight.w500;
 
     return TextSpan(
       children: [
         TextSpan(text: p1, style: TextStyle(color: regColor, fontSize: baseSize, fontFamily: fontFam, fontWeight: regWeight)),
-        TextSpan(text: p2, style: TextStyle(color: orpColor, fontSize: orpSize, fontWeight: orpWeight, fontFamily: fontFam)),
+        TextSpan(text: p2, style: TextStyle(color: orpColor, fontSize: orpSize, fontWeight: orpWeight, fontFamily: fontFam, letterSpacing: 0.5)),
         TextSpan(text: p3, style: TextStyle(color: regColor, fontSize: baseSize, fontFamily: fontFam, fontWeight: regWeight)),
       ],
     );
@@ -171,9 +153,23 @@ class _ReaderScreenState extends State<ReaderScreen> {
         final fSize = ThemeManager.instance.readerFontSize;
         final fFamily = ThemeManager.instance.readerFontFamily;
 
-        int pageStart = _currentPage * _wordsPerPage;
-        int pageEnd = pageStart + _wordsPerPage;
-        if (pageEnd > _words.length) pageEnd = _words.length;
+        // EKRAN ANALİZİ: Font boyutuna göre satıra ve sayfaya kaç kelime sığdığını hesaplar. FittedBox ve zıplamayı çözer.
+        final screenWidth = MediaQuery.of(context).size.width - 32;
+        final screenHeight = MediaQuery.of(context).size.height - 250;
+        
+        _wpl = (screenWidth / (fSize * 3.5)).floor().clamp(3, 15);
+        _lpp = (screenHeight / (fSize * 1.8)).floor().clamp(3, 20);
+        
+        _totalChunks = (_words.length / _wpp).ceil();
+
+        // Kalınan sayfayı ilk açılışta güncellenen wpp matrisine göre bir defaya mahsus ayarla
+        if (widget.activeBook != null && _currentWordIndex == 0 && widget.activeBook!.lastPage > 0) {
+          _currentWordIndex = widget.activeBook!.lastPage * _wpp;
+          if (_currentWordIndex >= _words.length) _currentWordIndex = 0;
+        }
+
+        int pageStart = (_currentWordIndex ~/ _wpp) * _wpp;
+        int currentLineIndex = ((_currentWordIndex - pageStart) ~/ _wpl);
 
         return Scaffold(
           backgroundColor: bg,
@@ -198,6 +194,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   if (val != null) {
                     setState(() {
                       _readingMode = val;
+                      _currentWordIndex = pageStart; // Mod değiştiğinde sayfanın başına hizala
                       if (_isPlaying) _runTimer();
                     });
                     _saveCurrentProgress();
@@ -219,6 +216,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 ),
               ),
               
+              // ANA OKUMA MOTORU
               Expanded(
                 child: Container(
                   margin: const EdgeInsets.all(16),
@@ -236,86 +234,90 @@ class _ReaderScreenState extends State<ReaderScreen> {
                         );
                       }
                       
+                      // Mod 2, 3, 4 İçin Zıplama Yapmayan Sabit Matris (FittedBox Yok)
                       List<Widget> lineWidgets = [];
-                      
-                      // Mod 3 ve 4 Algoritması
-                      int targetLineForMode4 = _linesPerPage ~/ 2; 
-                      int targetWordForMode4 = _wordsPerLine ~/ 2;
+                      int middleLineForMode4 = _lpp ~/ 2; 
+                      int middleWordForMode4 = _wpl ~/ 2;
 
-                      for (int line = 0; line < _linesPerPage; line++) {
-                        int lineStart = pageStart + (line * _wordsPerLine);
-                        int lineEnd = lineStart + _wordsPerLine;
+                      for (int line = 0; line < _lpp; line++) {
+                        int lineStart = pageStart + (line * _wpl);
                         if (lineStart >= _words.length) break;
+                        
+                        int lineEnd = lineStart + _wpl;
                         if (lineEnd > _words.length) lineEnd = _words.length;
 
                         List<String> lineWords = _words.sublist(lineStart, lineEnd);
                         List<InlineSpan> spans = [];
 
-                        int currentLineIndex = ((_currentWordIndex - pageStart) ~/ _wordsPerLine);
                         bool isCurrentLine = (line == currentLineIndex);
+                        Color lineBgColor = Colors.transparent;
+
+                        if (_readingMode == 3 && isCurrentLine) {
+                          lineBgColor = textCol.withOpacity(0.08); 
+                        }
 
                         for (int i = 0; i < lineWords.length; i++) {
                           int globalIdx = lineStart + i;
                           bool isCurrentWord = (globalIdx == _currentWordIndex);
-
+                          
                           Color wordColor = textCol;
+                          Color wordBgColor = Colors.transparent;
                           bool showOrp = false;
-                          bool largeOrp = false;
 
                           if (_readingMode == 2 && isCurrentWord) {
-                            showOrp = true; largeOrp = true;
+                            wordBgColor = focusCol.withOpacity(0.15);
+                            showOrp = true;
                           } else if (_readingMode == 3) {
                             if (isCurrentLine) {
                               wordColor = textCol;
-                              // Satırın tam ortasındaki kelimeyi odakla
-                              if (i == _wordsPerLine ~/ 2) {
-                                showOrp = true; largeOrp = true;
-                              }
+                              if (i == _wpl ~/ 2) showOrp = true; // Satırın ortasındaki kelime ORP
                             } else {
-                              wordColor = textCol.withOpacity(0.3); 
+                              wordColor = textCol.withOpacity(0.3); // Diğer satırlar soluk
                             }
                           } else if (_readingMode == 4) {
-                            // Sayfanın ortasındaki satırın ortasındaki kelimeyi odakla
-                            if (line == targetLineForMode4 && i == targetWordForMode4) {
-                              showOrp = true; largeOrp = true;
+                            // Sayfanın tam ortası
+                            if (line == middleLineForMode4 && i == middleWordForMode4) {
+                              showOrp = true;
                             }
                           }
 
                           if (showOrp) {
-                            spans.add(_buildORPSpan(lineWords[i], fSize, wordColor, focusCol, fFamily, isLarge: largeOrp));
-                            spans.add(TextSpan(text: ' ', style: TextStyle(fontSize: fSize)));
+                            spans.add(TextSpan(style: TextStyle(backgroundColor: wordBgColor), children: [
+                              _buildORPSpan(lineWords[i], fSize, wordColor, focusCol, fFamily, isLarge: true),
+                              TextSpan(text: ' ', style: TextStyle(fontSize: fSize)),
+                            ]));
                           } else {
-                            spans.add(TextSpan(text: '${lineWords[i]} ', style: TextStyle(color: wordColor, fontSize: fSize, fontFamily: fFamily)));
+                            spans.add(TextSpan(text: '${lineWords[i]} ', style: TextStyle(color: wordColor, backgroundColor: wordBgColor, fontSize: fSize, fontFamily: fFamily)));
                           }
                         }
 
-                        // Metnin taşmasını ve kaymasını kesinlikle önleyen FittedBox/RichText Kombinasyonu
+                        // Metni kullanıcının seçtiği fontla, serbest ama hizalı bırakır. 
                         lineWidgets.add(
-                          Expanded(
-                            child: Container(
-                              width: double.infinity,
-                              color: (_readingMode == 3 && isCurrentLine) ? textCol.withOpacity(0.08) : Colors.transparent,
-                              alignment: Alignment.center,
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.center,
-                                child: RichText(text: TextSpan(children: spans)),
-                              ),
+                          Container(
+                            width: double.infinity,
+                            color: lineBgColor,
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: RichText(
+                              textAlign: TextAlign.center, // Kelimeleri düz ve ortalı bir çizgide tutar
+                              text: TextSpan(children: spans),
                             ),
                           ),
                         );
                       }
 
-                      return Column(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: lineWidgets,
+                      return SingleChildScrollView(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: lineWidgets,
+                        ),
                       );
                     },
                   ),
                 ),
               ),
               
+              // ALT BÖLÜM: Kontrol Paneli
               Container(
                 padding: const EdgeInsets.all(16),
                 color: textCol.withOpacity(0.03),
