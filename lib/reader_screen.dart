@@ -78,7 +78,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
     _timer = Timer.periodic(Duration(milliseconds: durationMs), (timer) {
       if (!mounted || !_isPlaying) {
-        timer.cancel(); // Arkaplan timer sızıntısını engelleyen kesin çözüm
+        timer.cancel(); 
         return;
       }
 
@@ -90,7 +90,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
           _currentWordIndex += _wpp;
           _currentWordIndex = (_currentWordIndex ~/ _wpp) * _wpp; 
         } else {
-          _currentWordIndex++; 
+          _currentWordIndex++; // Mod 1, 2, 5 ve 6 kelime kelime (word by word) ilerler
         }
 
         if (_currentWordIndex >= _words.length) {
@@ -184,6 +184,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   DropdownMenuItem(value: 2, child: Text('Mod 2: Sayfa Highlight', style: TextStyle(color: textCol))),
                   DropdownMenuItem(value: 3, child: Text('Mod 3: Satır Odak', style: TextStyle(color: textCol))),
                   DropdownMenuItem(value: 4, child: Text('Mod 4: Sayfa Akışı', style: TextStyle(color: textCol))),
+                  DropdownMenuItem(value: 5, child: Text('Mod 5: Gölgeleme', style: TextStyle(color: textCol))),
+                  DropdownMenuItem(value: 6, child: Text('Mod 6: Gruplama', style: TextStyle(color: textCol))),
                 ],
                 onChanged: (val) {
                   if (val != null) {
@@ -271,6 +273,26 @@ class _ReaderScreenState extends State<ReaderScreen> {
                             if (line == middleLineForMode4 && i == middleWordForMode4) {
                               showOrp = true;
                             }
+                          } else if (_readingMode == 5) {
+                            // MOD 5: GÖLGELEME MANTIĞI EKLENDİ
+                            if (isCurrentWord) {
+                              wordColor = textCol;
+                              wordBgColor = textCol.withOpacity(0.3);
+                              showOrp = true;
+                            } else {
+                              wordColor = textCol;
+                              wordBgColor = Colors.transparent;
+                            }
+                          } else if (_readingMode == 6) {
+                            // MOD 6: GRUPLAMA MANTIĞI EKLENDİ
+                            if (isCurrentWord) {
+                              wordColor = textCol;
+                              wordBgColor = Colors.transparent;
+                              showOrp = true;
+                            } else {
+                              wordColor = Colors.transparent;
+                              wordBgColor = textCol.withOpacity(0.4);
+                            }
                           }
 
                           if (showOrp) {
@@ -308,7 +330,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 ),
               ),
               
-              // Android sanal buton koruması
               SafeArea(
                 bottom: true,
                 child: Container(
