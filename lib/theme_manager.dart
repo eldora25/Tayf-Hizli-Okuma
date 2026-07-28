@@ -7,14 +7,19 @@ class ThemeManager extends ChangeNotifier {
   static final ThemeManager instance = ThemeManager._internal();
   ThemeManager._internal();
 
-  ThemeMode themeMode = ThemeMode.dark; // Varsayılan olarak Koyu Mod
+  ThemeMode themeMode = ThemeMode.dark; 
   AppThemePalette currentPalette = AppThemePalette.darkVoid;
   
   double readerFontSize = 18.0;
   String readerFontFamily = 'sans-serif';
   Color readerTextColor = Colors.red;
 
-  // Kalıcı hafızadan kullanıcı ayarlarını yükler
+  // Sihirbaz Hafızası
+  int savedReaderMode = 1;
+  int savedAdvancedMode = 1;
+  int savedSourceType = 1;
+  String savedBookId = "";
+
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     themeMode = ThemeMode.values[prefs.getInt('themeMode') ?? ThemeMode.dark.index];
@@ -23,7 +28,31 @@ class ThemeManager extends ChangeNotifier {
     readerFontFamily = prefs.getString('fontFamily') ?? 'sans-serif';
     int colorValue = prefs.getInt('textColor') ?? Colors.red.value;
     readerTextColor = Color(colorValue);
+
+    savedReaderMode = prefs.getInt('savedReaderMode') ?? 1;
+    savedAdvancedMode = prefs.getInt('savedAdvancedMode') ?? 1;
+    savedSourceType = prefs.getInt('savedSourceType') ?? 1;
+    savedBookId = prefs.getString('savedBookId') ?? "";
+
     notifyListeners();
+  }
+
+  void saveReaderWizardSettings(int mode, String bookId) async {
+    savedReaderMode = mode;
+    savedBookId = bookId;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('savedReaderMode', mode);
+    await prefs.setString('savedBookId', bookId);
+  }
+
+  void saveAdvancedWizardSettings(int mode, int source, String bookId) async {
+    savedAdvancedMode = mode;
+    savedSourceType = source;
+    savedBookId = bookId;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('savedAdvancedMode', mode);
+    await prefs.setInt('savedSourceType', source);
+    await prefs.setString('savedBookId', bookId);
   }
 
   void setThemeMode(ThemeMode mode) async {
@@ -61,7 +90,6 @@ class ThemeManager extends ChangeNotifier {
     }
   }
 
-  // ORP Harfinin göz kasları tarafından anında yakalanması için daha parlak (fosforlu) renkler
   Color getVibrantOrpColor() {
     if (readerTextColor == Colors.red) return const Color(0xFFFF1744); 
     if (readerTextColor == Colors.amber) return const Color(0xFFFF9100); 
