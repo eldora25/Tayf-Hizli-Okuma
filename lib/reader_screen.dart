@@ -22,10 +22,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Timer? _timer;
   bool _isPlaying = false;
   
-  // Ekrandaki font boyutuna göre otomatik analiz edilecek satır/sayfa matrisi
-  int _wpl = 6; // Words Per Line
-  int _lpp = 8; // Lines Per Page
-  int get _wpp => _wpl * _lpp; // Words Per Page
+  int _wpl = 6; 
+  int _lpp = 8; 
+  int get _wpp => _wpl * _lpp; 
   int _totalChunks = 1;
 
   @override
@@ -37,7 +36,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (widget.activeBook != null) {
       _wpm = widget.activeBook!.savedWpm;
       _readingMode = widget.activeBook!.savedMode;
-      // İndeksi daha sonra build içinde _wpp hesaplanınca düzelteceğiz
     }
   }
 
@@ -71,32 +69,33 @@ class _ReaderScreenState extends State<ReaderScreen> {
     
     int durationMs = (60000 / _wpm).round();
     
-    // Mod 3 (Satır Satır) ise süre Satır Kelimesi kadar çarpılır
     if (_readingMode == 3) {
       durationMs *= _wpl; 
     } 
-    // Mod 4 (Sayfa Sayfa) ise süre Sayfa Kelimesi kadar çarpılır
     else if (_readingMode == 4) {
       durationMs *= _wpp; 
     }
 
     _timer = Timer.periodic(Duration(milliseconds: durationMs), (timer) {
-      if (!mounted) return;
+      if (!mounted || !_isPlaying) {
+        timer.cancel(); // Arkaplan timer sızıntısını engelleyen kesin çözüm
+        return;
+      }
 
       setState(() {
         if (_readingMode == 3) {
           _currentWordIndex += _wpl;
-          _currentWordIndex = (_currentWordIndex ~/ _wpl) * _wpl; // Satır başına kilitle
+          _currentWordIndex = (_currentWordIndex ~/ _wpl) * _wpl; 
         } else if (_readingMode == 4) {
           _currentWordIndex += _wpp;
-          _currentWordIndex = (_currentWordIndex ~/ _wpp) * _wpp; // Sayfa başına kilitle
+          _currentWordIndex = (_currentWordIndex ~/ _wpp) * _wpp; 
         } else {
-          _currentWordIndex++; // Mod 1 ve 2 kelime kelime ilerler
+          _currentWordIndex++; 
         }
 
         if (_currentWordIndex >= _words.length) {
           _currentWordIndex = _words.length - 1;
-          _timer?.cancel();
+          timer.cancel();
           _isPlaying = false;
         }
       });
@@ -116,7 +115,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _saveCurrentProgress();
   }
 
-  /// Otomatik Font Değiştirmeyen ORP Motoru
   TextSpan _buildORPSpan(String word, double baseSize, Color regColor, Color orpColor, String fontFam, {bool isLarge = false}) {
     if (word.isEmpty) return const TextSpan();
     
@@ -128,7 +126,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     String p2 = word.substring(focusIndex, focusIndex + 1);
     String p3 = word.substring(focusIndex + 1);
 
-    // Kırmızı ORP harfi daha kalın ve çok hafif büyük
     double orpSize = isLarge ? baseSize * 1.3 : baseSize * 1.1;
     FontWeight orpWeight = isLarge ? FontWeight.w900 : FontWeight.bold;
     FontWeight regWeight = isLarge ? FontWeight.w600 : FontWeight.w500;
@@ -153,7 +150,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
         final fSize = ThemeManager.instance.readerFontSize;
         final fFamily = ThemeManager.instance.readerFontFamily;
 
-        // EKRAN ANALİZİ: Font boyutuna göre satıra ve sayfaya kaç kelime sığdığını hesaplar. FittedBox ve zıplamayı çözer.
         final screenWidth = MediaQuery.of(context).size.width - 32;
         final screenHeight = MediaQuery.of(context).size.height - 250;
         
@@ -162,7 +158,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
         
         _totalChunks = (_words.length / _wpp).ceil();
 
-        // Kalınan sayfayı ilk açılışta güncellenen wpp matrisine göre bir defaya mahsus ayarla
         if (widget.activeBook != null && _currentWordIndex == 0 && widget.activeBook!.lastPage > 0) {
           _currentWordIndex = widget.activeBook!.lastPage * _wpp;
           if (_currentWordIndex >= _words.length) _currentWordIndex = 0;
@@ -194,7 +189,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   if (val != null) {
                     setState(() {
                       _readingMode = val;
-                      _currentWordIndex = pageStart; // Mod değiştiğinde sayfanın başına hizala
+                      _currentWordIndex = pageStart; 
                       if (_isPlaying) _runTimer();
                     });
                     _saveCurrentProgress();
@@ -216,11 +211,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 ),
               ),
               
-              // ANA OKUMA MOTORU
               Expanded(
                 child: Container(
-                  margin: const EdgeInsets.all(16),
-                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(color: textCol.withOpacity(0.04), borderRadius: BorderRadius.circular(12)),
                   alignment: Alignment.center,
                   child: Builder(
@@ -234,7 +228,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                         );
                       }
                       
-                      // Mod 2, 3, 4 İçin Zıplama Yapmayan Sabit Matris (FittedBox Yok)
                       List<Widget> lineWidgets = [];
                       int middleLineForMode4 = _lpp ~/ 2; 
                       int middleWordForMode4 = _wpl ~/ 2;
@@ -270,12 +263,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           } else if (_readingMode == 3) {
                             if (isCurrentLine) {
                               wordColor = textCol;
-                              if (i == _wpl ~/ 2) showOrp = true; // Satırın ortasındaki kelime ORP
+                              if (i == _wpl ~/ 2) showOrp = true; 
                             } else {
-                              wordColor = textCol.withOpacity(0.3); // Diğer satırlar soluk
+                              wordColor = textCol.withOpacity(0.3); 
                             }
                           } else if (_readingMode == 4) {
-                            // Sayfanın tam ortası
                             if (line == middleLineForMode4 && i == middleWordForMode4) {
                               showOrp = true;
                             }
@@ -291,14 +283,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           }
                         }
 
-                        // Metni kullanıcının seçtiği fontla, serbest ama hizalı bırakır. 
                         lineWidgets.add(
                           Container(
                             width: double.infinity,
                             color: lineBgColor,
                             padding: const EdgeInsets.symmetric(vertical: 2),
                             child: RichText(
-                              textAlign: TextAlign.center, // Kelimeleri düz ve ortalı bir çizgide tutar
+                              textAlign: TextAlign.center, 
                               text: TextSpan(children: spans),
                             ),
                           ),
@@ -317,51 +308,54 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 ),
               ),
               
-              // ALT BÖLÜM: Kontrol Paneli
-              Container(
-                padding: const EdgeInsets.all(16),
-                color: textCol.withOpacity(0.03),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.speed, color: textCol, size: 18),
-                        Expanded(
-                          child: Slider(
-                            value: _wpm.toDouble(),
-                            min: 100, max: 1000, divisions: 18,
-                            label: '$_wpm WPM',
-                            activeColor: focusCol,
-                            onChanged: (val) {
-                              setState(() {
-                                _wpm = val.round();
-                                if (_isPlaying) _runTimer();
-                              });
-                              _saveCurrentProgress();
-                            },
+              // Android sanal buton koruması
+              SafeArea(
+                bottom: true,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  color: textCol.withOpacity(0.03),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.speed, color: textCol, size: 18),
+                          Expanded(
+                            child: Slider(
+                              value: _wpm.toDouble(),
+                              min: 100, max: 1000, divisions: 18,
+                              label: '$_wpm WPM',
+                              activeColor: focusCol,
+                              onChanged: (val) {
+                                setState(() {
+                                  _wpm = val.round();
+                                  if (_isPlaying) _runTimer();
+                                });
+                                _saveCurrentProgress();
+                              },
+                            ),
                           ),
-                        ),
-                        Text('$_wpm WPM', style: TextStyle(color: textCol, fontSize: 12, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        IconButton(icon: const Icon(Icons.fast_rewind), color: textCol, onPressed: () => _jumpPages(-5)),
-                        IconButton(icon: const Icon(Icons.chevron_left), color: textCol, onPressed: () => _jumpPages(-1)),
-                        FloatingActionButton(
-                          onPressed: _togglePlay,
-                          backgroundColor: focusCol,
-                          foregroundColor: Colors.white,
-                          child: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-                        ),
-                        IconButton(icon: const Icon(Icons.chevron_right), color: textCol, onPressed: () => _jumpPages(1)),
-                        IconButton(icon: const Icon(Icons.fast_forward), color: textCol, onPressed: () => _jumpPages(5)),
-                      ],
-                    )
-                  ],
+                          Text('$_wpm WPM', style: TextStyle(color: textCol, fontSize: 12, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          IconButton(icon: const Icon(Icons.fast_rewind), color: textCol, onPressed: () => _jumpPages(-5)),
+                          IconButton(icon: const Icon(Icons.chevron_left), color: textCol, onPressed: () => _jumpPages(-1)),
+                          FloatingActionButton(
+                            onPressed: _togglePlay,
+                            backgroundColor: focusCol,
+                            foregroundColor: Colors.white,
+                            child: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
+                          ),
+                          IconButton(icon: const Icon(Icons.chevron_right), color: textCol, onPressed: () => _jumpPages(1)),
+                          IconButton(icon: const Icon(Icons.fast_forward), color: textCol, onPressed: () => _jumpPages(5)),
+                        ],
+                      )
+                    ],
+                  ),
                 ),
               ),
             ],
