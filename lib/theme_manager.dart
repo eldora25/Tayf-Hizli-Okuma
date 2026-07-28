@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum AppThemePalette { classic, amber, darkVoid, mint }
 
@@ -6,27 +7,48 @@ class ThemeManager extends ChangeNotifier {
   static final ThemeManager instance = ThemeManager._internal();
   ThemeManager._internal();
 
-  ThemeMode themeMode = ThemeMode.light;
-  AppThemePalette currentPalette = AppThemePalette.classic;
+  ThemeMode themeMode = ThemeMode.dark; // Varsayılan Koyu Mod
+  AppThemePalette currentPalette = AppThemePalette.darkVoid;
   
   double readerFontSize = 18.0;
   String readerFontFamily = 'sans-serif';
   Color readerTextColor = Colors.red;
 
-  void setThemeMode(ThemeMode mode) {
-    themeMode = mode;
-    notifyListeners(); // Tema değiştiğinde tüm ekranları anında uyarır
-  }
-
-  void setPalette(AppThemePalette palette) {
-    currentPalette = palette;
+  // Kalıcı hafızadan ayarları yükler
+  Future<void> init() async {
+    final prefs = await SharedPreferences.getInstance();
+    themeMode = ThemeMode.values[prefs.getInt('themeMode') ?? ThemeMode.dark.index];
+    currentPalette = AppThemePalette.values[prefs.getInt('palette') ?? AppThemePalette.darkVoid.index];
+    readerFontSize = prefs.getDouble('fontSize') ?? 18.0;
+    readerFontFamily = prefs.getString('fontFamily') ?? 'sans-serif';
+    int colorValue = prefs.getInt('textColor') ?? Colors.red.value;
+    readerTextColor = Color(colorValue);
     notifyListeners();
   }
 
-  void updateReaderSettings(double size, String fontFamily, Color textColor) {
+  void setThemeMode(ThemeMode mode) async {
+    themeMode = mode;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('themeMode', mode.index);
+    notifyListeners();
+  }
+
+  void setPalette(AppThemePalette palette) async {
+    currentPalette = palette;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('palette', palette.index);
+    notifyListeners();
+  }
+
+  void updateReaderSettings(double size, String fontFamily, Color textColor) async {
     readerFontSize = size;
     readerFontFamily = fontFamily;
     readerTextColor = textColor;
+    
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('fontSize', size);
+    await prefs.setString('fontFamily', fontFamily);
+    await prefs.setInt('textColor', textColor.value);
     notifyListeners();
   }
 
@@ -39,19 +61,17 @@ class ThemeManager extends ChangeNotifier {
     }
   }
 
-  // ORP (Odak) harfinin normalden çok daha parlak (fosforlu/canlı) görünmesini sağlar
+  // ORP Harfini çok daha belirgin, kalın ve fosforlu yapar
   Color getVibrantOrpColor() {
-    if (readerTextColor == Colors.red) return const Color(0xFFFF1744); // Neon Kırmızı
-    if (readerTextColor == Colors.amber) return const Color(0xFFFF9100); // Parlak Turuncu
-    if (readerTextColor == Colors.blue) return const Color(0xFF2979FF); // Elektrik Mavisi
-    if (readerTextColor == Colors.green) return const Color(0xFF00E676); // Fosforlu Yeşil
+    if (readerTextColor == Colors.red) return const Color(0xFFFF1744); 
+    if (readerTextColor == Colors.amber) return const Color(0xFFFF9100); 
+    if (readerTextColor == Colors.blue) return const Color(0xFF2979FF); 
+    if (readerTextColor == Colors.green) return const Color(0xFF00E676); 
     return readerTextColor;
   }
 
   Color getReaderBackgroundColor() {
-    if (themeMode == ThemeMode.dark) {
-      return const Color(0xFF121212);
-    }
+    if (themeMode == ThemeMode.dark) return const Color(0xFF121212);
     switch (currentPalette) {
       case AppThemePalette.amber: return const Color(0xFFFDF6E3);
       case AppThemePalette.mint: return const Color(0xFFE8F5E9);
@@ -61,9 +81,7 @@ class ThemeManager extends ChangeNotifier {
   }
 
   Color getReaderTextColor() {
-    if (themeMode == ThemeMode.dark) {
-      return const Color(0xFFE5E5E5);
-    }
+    if (themeMode == ThemeMode.dark) return const Color(0xFFE5E5E5);
     switch (currentPalette) {
       case AppThemePalette.darkVoid: return const Color(0xFFE5E5E5);
       default: return const Color(0xFF2C3E50);
@@ -76,17 +94,10 @@ class ThemeManager extends ChangeNotifier {
 
     if (!isDark) {
       switch (currentPalette) {
-        case AppThemePalette.amber:
-          primaryColor = Colors.amber.shade900;
-          break;
-        case AppThemePalette.mint:
-          primaryColor = Colors.green.shade700;
-          break;
-        case AppThemePalette.darkVoid:
-          primaryColor = Colors.indigo.shade900;
-          break;
-        default:
-          primaryColor = Colors.blue;
+        case AppThemePalette.amber: primaryColor = Colors.amber.shade900; break;
+        case AppThemePalette.mint: primaryColor = Colors.green.shade700; break;
+        case AppThemePalette.darkVoid: primaryColor = Colors.indigo.shade900; break;
+        default: primaryColor = Colors.blue;
       }
     }
 
