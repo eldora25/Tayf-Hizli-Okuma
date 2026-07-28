@@ -45,6 +45,7 @@ class BookDatabase {
 
   List<BookModel> getBooks() => _myBooks;
 
+  // Cihaz hafızasından daha önce eklenen kitapları yükler
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     final String? booksJson = prefs.getString('saved_books');
