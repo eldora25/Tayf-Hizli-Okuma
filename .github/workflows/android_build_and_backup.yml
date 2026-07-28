@@ -15,13 +15,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Depodaki kodları tam geçmişle iş akışına çek
       - name: Kaynak Kodları Çek (Checkout)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # 2. Kaynak dosyalarını izole build numaralı klasöre yedekle
       - name: Kaynak Kodları İzole Klasörde Yedekle
         run: |
           BUILD_NO="${{ github.run_number }}"
@@ -31,14 +29,12 @@ jobs:
           if [ -f "pubspec.yaml" ]; then cp pubspec.yaml "$BACKUP_DIR/"; fi
           if [ -d "lib" ]; then cp -r lib/ "$BACKUP_DIR/"; fi
 
-      # 3. Yedek klasörünü bağımsız bir artifact olarak paketle
       - name: Kaynak Kod Yedeklerini Bağımsız Artifact Olarak Yükle
         uses: actions/upload-artifact@v4
         with:
           name: tayf-kaynak-kod-yedek-build-${{ github.run_number }}
           path: backups/build-${{ github.run_number }}/
 
-      # 4. Çakışma önleyici pull --rebase kullanarak yedekleri güvenle depoya push et
       - name: Yedekleri Depoya Commit Et ve Gönder
         run: |
           git config --global user.name "github-actions[bot]"
@@ -50,62 +46,62 @@ jobs:
             git push origin ${{ github.ref_name }}
           fi
 
-      # 5. Java Ortamını Kur
       - name: Java JDK Kurulumu
         uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      # 6. Flutter Ortamını Kur
       - name: Flutter SDK Kurulumu
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      # 7. Eksik Android Klasörünü ve Proje Şablonunu Oluştur
       - name: Eksik Android Proje Dosyalarını Oluştur
         run: |
           if [ ! -d "android" ]; then
             flutter create --platforms=android --org com.tayf.hizliokuma .
           fi
 
-      # 8. Sürüm Yerleştirmesi
       - name: Build Numarasını Kod Yapısına Yaz
         run: |
           BUILD_NO="${{ github.run_number }}"
           sed -i "s/BUILD_NUMBER_PLACEHOLDER/$BUILD_NO/g" lib/home_screen.dart || true
           sed -i "s/BUILD_NUMBER_PLACEHOLDER/$BUILD_NO/g" lib/reader_screen.dart || true
 
-      # 9. Bağımlılıkları Çek (Bu işlem file_picker dahil paketleri önbelleğe indirir)
       - name: Flutter Bağımlılıklarını Getir
         run: flutter pub get
 
-      # 10. [HATA ÇÖZÜMÜ]: Paketler İndirildikten Sonra Pub-Cache Üzerinden API 36 Zorlaması
       - name: Android compileSdk Sürümünü 36'ya Yükselt (Pluginler Dahil)
         run: |
-          # A) Ana Android projesi için API 36 zorlaması
           find android/ -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) -exec sed -i -E 's/compileSdk(Version)?([[:space:]]*=?[[:space:]]*)(flutter\.compileSdkVersion|[0-9]+)/compileSdk\1\236/g' {} +
-          
-          # B) İndirilen Eklentiler (file_picker vb.) için Pub-Cache üzerinde API 36 zorlaması
           FLUTTER_DIR=$(dirname $(dirname $(which flutter)))
           PUB_CACHE_DIR="$FLUTTER_DIR/.pub-cache"
-          
-          # Flutter kurulum dizinindeki pub-cache'i güncelle
           if [ -d "$PUB_CACHE_DIR" ]; then
             find "$PUB_CACHE_DIR" -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) -exec sed -i -E 's/compileSdk(Version)?([[:space:]]*=?[[:space:]]*)[0-9]+/compileSdk\1\236/g' {} + || true
           fi
-          
-          # Ortam değişkeni (kullanıcı) dizinindeki pub-cache'i güncelle
           if [ -d "$HOME/.pub-cache" ]; then
             find "$HOME/.pub-cache" -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) -exec sed -i -E 's/compileSdk(Version)?([[:space:]]*=?[[:space:]]*)[0-9]+/compileSdk\1\236/g' {} + || true
           fi
 
-      # 11. Android Debug APK Derle
+      - name: Uygulama İkonunu Oluştur ve Sisteme Entegre Et
+        run: |
+          mkdir -p assets
+          cat << 'EOF' > assets/icon.svg
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+            <rect width="512" height="512" fill="#1A1A24" rx="112" />
+            <path d="M160 140 C 256 100, 256 100, 256 100 C 256 100, 256 100, 352 140 V 380 C 256 340, 256 340, 256 340 C 256 340, 256 340, 160 380 Z" fill="#121212" stroke="#2979FF" stroke-width="28" stroke-linejoin="round"/>
+            <line x1="256" y1="100" x2="256" y2="340" stroke="#2979FF" stroke-width="28" stroke-linecap="round"/>
+            <path d="M280 180 L 210 260 L 260 270 L 220 340 L 310 230 L 250 220 Z" fill="#00E676"/>
+          </svg>
+          EOF
+          sudo apt-get update && sudo apt-get install -y librsvg2-bin
+          rsvg-convert -h 512 assets/icon.svg > assets/icon.png
+          dart run flutter_launcher_icons
+
       - name: Android Debug APK Derle
         run: flutter build apk --debug
 
-      # 12. APK Dosyasını Dinamik Yeniden İsimlendir
       - name: APK Dosyasını Dinamik Yeniden İsimlendir
         run: |
           BUILD_NO="${{ github.run_number }}"
@@ -118,7 +114,6 @@ jobs:
             exit 1
           fi
 
-      # 13. APK Çıktısını Yayınla (Upload Artifact)
       - name: APK Çıktısını Yayınla (Upload Artifact)
         uses: actions/upload-artifact@v4
         with:
